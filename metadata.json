@@ -1,0 +1,7 @@
+{
+  "name": "Arsip Digital DJKI",
+  "description": "Sistem manajemen arsip modern untuk Direktorat Jenderal Kekayaan Intelektual (DJKI), memungkinkan penyimpanan, pengorganisasian, dan pencarian cerdas berkas Paten, Merek, Hak Cipta, dan Desain Industri menggunakan bantuan AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
