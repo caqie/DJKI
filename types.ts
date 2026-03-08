@@ -10,7 +10,6 @@ export interface IntellectualPropertyDoc {
   dateFiled: string;
   status: 'Draft' | 'Terdaftar' | 'Ditolak' | 'Dalam Proses';
   description: string;
-  aiSummary?: string;
   fileUrl?: string;
 }
 

@@ -23,8 +23,8 @@ const StatsOverview: React.FC<StatsOverviewProps> = ({ docs }) => {
   const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#64748B'];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200">
         <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
           <span>📊</span> Distribusi Kategori Berkas
         </h3>
@@ -47,7 +47,7 @@ const StatsOverview: React.FC<StatsOverviewProps> = ({ docs }) => {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200">
         <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
           <span>📉</span> Status Permohonan
         </h3>

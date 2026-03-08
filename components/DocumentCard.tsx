@@ -45,17 +45,6 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc }) => {
           </div>
         </div>
 
-        {doc.aiSummary && (
-          <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 mb-4">
-            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <span>✨</span> Ringkasan AI
-            </p>
-            <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2 italic">
-              "{doc.aiSummary}"
-            </p>
-          </div>
-        )}
-
         <div className="flex gap-2">
           <button 
             onClick={() => setShowModal(true)}
@@ -79,7 +68,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc }) => {
             className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-slate-100 flex justify-between items-start">
+            <div className="p-4 md:p-6 border-b border-slate-100 flex justify-between items-start">
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${CATEGORY_COLORS[doc.category]}`}>
@@ -89,8 +78,8 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc }) => {
                     {doc.status.toUpperCase()}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 leading-tight">{doc.title}</h3>
-                <p className="text-sm text-slate-500 mt-1">Nomor Permohonan: <span className="font-mono">{doc.applicationNumber}</span></p>
+                <h3 className="text-lg md:text-xl font-bold text-slate-900 leading-tight">{doc.title}</h3>
+                <p className="text-xs md:text-sm text-slate-500 mt-1">Nomor Permohonan: <span className="font-mono">{doc.applicationNumber}</span></p>
               </div>
               <button 
                 onClick={() => setShowModal(false)}
@@ -100,7 +89,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc }) => {
               </button>
             </div>
             
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
+            <div className="p-4 md:p-6 max-h-[70vh] overflow-y-auto space-y-6">
               <div>
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Informasi Pemohon</h4>
                 <p className="text-slate-800 font-medium">{doc.applicant}</p>
@@ -113,18 +102,6 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc }) => {
                   {doc.description}
                 </p>
               </div>
-
-              {doc.aiSummary && (
-                <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-blue-600">✨</span>
-                    <h4 className="text-sm font-bold text-blue-800">Analisis Cerdas AI</h4>
-                  </div>
-                  <p className="text-blue-700 text-sm leading-relaxed italic">
-                    "{doc.aiSummary}"
-                  </p>
-                </div>
-              )}
 
               <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border border-slate-100">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 text-center">QR Code Label Box Arsip</h4>
@@ -146,7 +123,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc }) => {
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
               <button 
                 onClick={() => setShowModal(false)}
                 className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"

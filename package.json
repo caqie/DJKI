@@ -10,7 +10,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.41.0",
     "html5-qrcode": "^2.3.8",
     "motion": "^12.34.3",
     "qrcode.react": "^4.2.0",

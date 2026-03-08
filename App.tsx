@@ -10,7 +10,6 @@ import Sidebar from './components/Sidebar';
 import StatsOverview from './components/StatsOverview';
 import DocumentCard from './components/DocumentCard';
 import { IntellectualPropertyDoc, DocCategory } from './types';
-import { analyzeDocument } from './services/geminiService';
 
 const INITIAL_DOCS: IntellectualPropertyDoc[] = [
   {
@@ -21,8 +20,7 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     category: 'Sertifikat',
     dateFiled: '2023-11-12',
     status: 'Terdaftar',
-    description: 'Sertifikat resmi pendaftaran merek dagang Kopi Kenangan untuk kelas barang 30.',
-    aiSummary: 'Dokumen bukti kepemilikan hak eksklusif atas merek dagang Kopi Kenangan.'
+    description: 'Sertifikat resmi pendaftaran merek dagang Kopi Kenangan untuk kelas barang 30.'
   },
   {
     id: '2',
@@ -32,8 +30,7 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     category: 'Permohonan',
     dateFiled: '2024-01-20',
     status: 'Dalam Proses',
-    description: 'Berkas permohonan paten untuk invensi sistem pengolahan limbah cair industri batik.',
-    aiSummary: 'Pengajuan perlindungan paten untuk teknologi ramah lingkungan pengolahan limbah.'
+    description: 'Berkas permohonan paten untuk invensi sistem pengolahan limbah cair industri batik.'
   },
   {
     id: '3',
@@ -43,8 +40,7 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     category: 'Sanggahan',
     dateFiled: '2024-02-05',
     status: 'Dalam Proses',
-    description: 'Tanggapan tertulis atas usulan penolakan pendaftaran merek GlowUp karena kemiripan pada pokoknya.',
-    aiSummary: 'Argumen hukum untuk mempertahankan pendaftaran merek yang sedang dalam proses pemeriksaan.'
+    description: 'Tanggapan tertulis atas usulan penolakan pendaftaran merek GlowUp karena kemiripan pada pokoknya.'
   },
   {
     id: '4',
@@ -54,13 +50,13 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     category: 'Tolakan',
     dateFiled: '2023-12-15',
     status: 'Ditolak',
-    description: 'Pemberitahuan resmi penolakan permohonan desain industri motif batik karena kurangnya unsur kebaruan.',
-    aiSummary: 'Keputusan final DJKI yang menolak perlindungan desain industri yang diajukan.'
+    description: 'Pemberitahuan resmi penolakan permohonan desain industri motif batik karena kurangnya unsur kebaruan.'
   }
 ];
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [documents, setDocuments] = useState<IntellectualPropertyDoc[]>(INITIAL_DOCS);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('Semua');
@@ -100,19 +96,15 @@ const App: React.FC = () => {
     setUploadSuccess(false);
     
     try {
-      // AI Processing
-      const aiResult = await analyzeDocument(newDoc.title, newDoc.description);
-      
       const doc: IntellectualPropertyDoc = {
         id: Math.random().toString(36).substr(2, 9),
         title: newDoc.title,
         applicationNumber: newDoc.applicationNumber || ('PEND-' + Math.floor(10000000 + Math.random() * 90000000)),
         applicant: newDoc.applicant,
-        category: (aiResult.suggestedCategory as DocCategory) || newDoc.category,
+        category: newDoc.category,
         dateFiled: newDoc.dateFiled,
         status: 'Draft',
-        description: newDoc.description,
-        aiSummary: aiResult.summary
+        description: newDoc.description
       };
 
       setDocuments(prev => [doc, ...prev]);
@@ -170,29 +162,42 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex bg-slate-50">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isOpen={isSidebarOpen} 
+        setIsOpen={setIsSidebarOpen} 
+      />
       
-      <main className="flex-1 ml-64 p-8">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800 capitalize">
-              {activeTab === 'dashboard' && 'Dashboard Analitik'}
-              {activeTab === 'search' && 'Pencarian Berkas'}
-              {activeTab === 'upload' && 'Arsip Baru'}
-              {activeTab === 'scanner' && 'Scan Label Box'}
-              {activeTab === 'categories' && 'Manajemen Kategori'}
-              {activeTab === 'reports' && 'Laporan & Analitik'}
-              {activeTab === 'settings' && 'Pengaturan Sistem'}
-            </h2>
-            <p className="text-slate-500 text-sm">Selamat datang kembali di sistem arsip DJKI.</p>
+      <main className="flex-1 lg:ml-64 p-4 md:p-8 transition-all duration-300">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+            >
+              ☰
+            </button>
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-slate-800 capitalize">
+                {activeTab === 'dashboard' && 'Dashboard Analitik'}
+                {activeTab === 'search' && 'Pencarian Berkas'}
+                {activeTab === 'upload' && 'Arsip Baru'}
+                {activeTab === 'scanner' && 'Scan Label Box'}
+                {activeTab === 'categories' && 'Manajemen Kategori'}
+                {activeTab === 'reports' && 'Laporan & Analitik'}
+                {activeTab === 'settings' && 'Pengaturan Sistem'}
+              </h2>
+              <p className="text-slate-500 text-xs md:text-sm">Selamat datang kembali di sistem arsip DJKI.</p>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-             <div className="relative hidden md:block">
+          <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto justify-end">
+             <div className="relative hidden sm:block">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
                 <input 
                   type="text" 
-                  placeholder="Cari nomor pendaftaran..." 
-                  className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-64"
+                  placeholder="Cari nomor..." 
+                  className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-32 md:w-64"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -209,7 +214,7 @@ const App: React.FC = () => {
 
         {activeTab === 'dashboard' && (
           <div className="animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {[
                 { label: 'Total Berkas', value: documents.length, color: 'blue', icon: '📁' },
                 { label: 'Sertifikat', value: documents.filter(d => d.category === 'Sertifikat').length, color: 'emerald', icon: '📜' },
@@ -243,7 +248,7 @@ const App: React.FC = () => {
                   Lihat Semua →
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {documents.slice(0, 3).map(doc => (
                   <DocumentCard key={doc.id} doc={doc} />
                 ))}
@@ -281,7 +286,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredDocs.length > 0 ? (
                 filteredDocs.map(doc => (
                   <DocumentCard key={doc.id} doc={doc} />
@@ -482,7 +487,7 @@ const App: React.FC = () => {
                         {isUploading ? (
                           <>
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            <span className="animate-pulse">Menganalisis dengan AI...</span>
+                            <span className="animate-pulse">Menyimpan Dokumen...</span>
                           </>
                         ) : (
                           <>
@@ -536,7 +541,7 @@ const App: React.FC = () => {
             animate={{ opacity: 1 }}
             className="space-y-6"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { name: 'Sertifikat', count: documents.filter(d => d.category === 'Sertifikat').length, icon: '📜', color: 'bg-emerald-500', desc: 'Dokumen bukti pendaftaran resmi yang telah disetujui.' },
                 { name: 'Kutipan', count: documents.filter(d => d.category === 'Kutipan').length, icon: '📄', color: 'bg-blue-500', desc: 'Salinan resmi dari buku daftar umum kekayaan intelektual.' },
@@ -632,21 +637,21 @@ const App: React.FC = () => {
 
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-slate-800">Ringkasan Kinerja AI</h3>
-                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Akurasi 98.4%</span>
+                <h3 className="font-bold text-slate-800">Ringkasan Kinerja Sistem</h3>
+                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Uptime 99.9%</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
                   <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Waktu Proses Rata-rata</p>
-                  <p className="text-3xl font-black text-slate-800">1.2s <span className="text-xs text-emerald-500 font-bold">↓ 0.4s</span></p>
+                  <p className="text-2xl md:text-3xl font-black text-slate-800">0.2s <span className="text-xs text-emerald-500 font-bold">Optimal</span></p>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Dokumen Teranalisis</p>
-                  <p className="text-3xl font-black text-slate-800">1,284 <span className="text-xs text-blue-500 font-bold">↑ 12%</span></p>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Dokumen Terarsip</p>
+                  <p className="text-2xl md:text-3xl font-black text-slate-800">1,284 <span className="text-xs text-blue-500 font-bold">↑ 12%</span></p>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Penghematan Waktu</p>
-                  <p className="text-3xl font-black text-slate-800">420 Jam <span className="text-xs text-emerald-500 font-bold">Bulan Ini</span></p>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Efisiensi Ruang</p>
+                  <p className="text-2xl md:text-3xl font-black text-slate-800">85% <span className="text-xs text-emerald-500 font-bold">Tinggi</span></p>
                 </div>
               </div>
             </div>
@@ -667,24 +672,15 @@ const App: React.FC = () => {
               
               <div className="p-8 space-y-8">
                 <section>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Konfigurasi AI (Gemini)</h4>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Konfigurasi Sistem</h4>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <div>
-                        <p className="font-bold text-slate-700">Analisis Otomatis</p>
-                        <p className="text-xs text-slate-500">Jalankan AI segera setelah dokumen diunggah.</p>
+                        <p className="font-bold text-slate-700">Validasi Otomatis</p>
+                        <p className="text-xs text-slate-500">Jalankan validasi format segera setelah dokumen diunggah.</p>
                       </div>
                       <div className="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
                         <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div>
-                        <p className="font-bold text-slate-700">Ekstraksi Metadata OCR</p>
-                        <p className="text-xs text-slate-500">Ekstrak teks dari gambar/PDF secara otomatis.</p>
-                      </div>
-                      <div className="w-12 h-6 bg-slate-200 rounded-full relative cursor-pointer">
-                        <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
                       </div>
                     </div>
                   </div>
