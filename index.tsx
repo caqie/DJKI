@@ -12,4 +12,6 @@ if (container) {
       <App />
     </React.StrictMode>
   );
+} else {
+  console.error('Root container not found');
 }

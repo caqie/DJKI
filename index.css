@@ -12,3 +12,40 @@
 .animate-progress {
   animation: progress 2s ease-in-out forwards;
 }
+
+@media print {
+  @page {
+    size: 75mm 38mm;
+    margin: 0;
+  }
+  body {
+    background: white !important;
+  }
+  nav, header, aside, button, .print\:hidden {
+    display: none !important;
+  }
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  #printable-label {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 75mm !important;
+    height: 38mm !important;
+    padding: 2mm !important;
+    margin: 0 !important;
+    border: 1px solid #000 !important;
+    visibility: visible !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 2mm !important;
+    background: white !important;
+    overflow: hidden !important;
+  }
+  #printable-label * {
+    visibility: visible !important;
+  }
+}
