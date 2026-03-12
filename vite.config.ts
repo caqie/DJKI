@@ -6,15 +6,17 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: './',
       server: {
         port: 3000,
         host: '0.0.0.0',
+        fs: {
+          allow: ['..']
+        }
       },
       plugins: [react(), tailwindcss()],
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, '.'),
+          '@': path.resolve(__dirname, './src'),
         }
       }
     };

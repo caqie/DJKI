@@ -157,7 +157,7 @@ const VaultLogin: React.FC<VaultLoginProps> = ({ onLogin }) => {
                     <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
                     <>
-                      <span>BUKA BRANKAS</span>
+                      <span>LOGIN</span>
                       <Lock className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
