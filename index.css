@@ -15,19 +15,27 @@
 
 @media print {
   @page {
+    size: A4;
+    margin: 1cm;
+  }
+  
+  .print-label-size {
     size: 75mm 38mm;
     margin: 0;
   }
+
   body {
     background: white !important;
   }
-  nav, header, aside, button, .print\:hidden {
+  nav, header, aside, .print\:hidden {
     display: none !important;
   }
   main {
     margin: 0 !important;
     padding: 0 !important;
   }
+  
+  /* Label specific print styles */
   #printable-label {
     position: fixed;
     top: 0;
@@ -47,5 +55,17 @@
   }
   #printable-label * {
     visibility: visible !important;
+  }
+
+  /* Nota Dinas specific print styles */
+  .nota-dinas-print {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 }

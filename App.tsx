@@ -175,6 +175,7 @@ const App: React.FC = () => {
 
   const [selectedDocForView, setSelectedDocForView] = useState<IntellectualPropertyDoc | null>(null);
   const [selectedDocForEdit, setSelectedDocForEdit] = useState<IntellectualPropertyDoc | null>(null);
+  const [showNotaDinas, setShowNotaDinas] = useState(false);
   const [selectedBox, setSelectedBox] = useState<ArchiveBox | null>(null);
   const [scanHistory, setScanHistory] = useState<any[]>(() => {
     const saved = localStorage.getItem('djki_scan_history');
@@ -1644,6 +1645,123 @@ const App: React.FC = () => {
 
             {activeTab === 'reports' && (
               <div className="space-y-8">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-800">Laporan Strategis</h3>
+                    <p className="text-slate-500 text-sm">Analisis data dan ringkasan operasional vault.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowNotaDinas(true)}
+                    className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2 shadow-xl shadow-slate-200"
+                  >
+                    <FileText className="w-4 h-4" /> Cetak Nota Dinas
+                  </button>
+                </div>
+
+                {showNotaDinas && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
+                    <div className="bg-white w-full max-w-4xl min-h-[1000px] p-12 shadow-2xl relative my-8 font-serif text-black nota-dinas-print">
+                      <button 
+                        onClick={() => setShowNotaDinas(false)}
+                        className="absolute top-8 right-8 p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 font-sans print:hidden"
+                      >
+                        ✕
+                      </button>
+
+                      {/* Letterhead */}
+                      <div className="flex items-center border-b-4 border-black pb-4 mb-8">
+                        <img 
+                          src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/06/Logo_Kemenkumham_RI.svg/1200px-Logo_Kemenkumham_RI.svg.png" 
+                          alt="Logo Pengayoman" 
+                          className="w-24 h-24 object-contain mr-6"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="text-center flex-1">
+                          <h2 className="text-xl font-bold uppercase leading-tight">Kementerian Hukum dan Hak Asasi Manusia RI</h2>
+                          <h1 className="text-2xl font-black uppercase leading-tight">Direktorat Jenderal Kekayaan Intelektual</h1>
+                          <p className="text-sm font-medium mt-1">Jalan H.R. Rasuna Said Kav. 8-9, Jakarta Selatan 12940</p>
+                          <p className="text-xs">Telepon: (021) 57905611, Faksimile: (021) 57905611 Laman: www.dgip.go.id</p>
+                        </div>
+                      </div>
+
+                      {/* Nota Dinas Header */}
+                      <div className="text-center mb-8">
+                        <h3 className="text-xl font-bold underline uppercase">Nota Dinas</h3>
+                        <p className="text-sm">Nomor: W.11.UM.01.01-{new Date().getFullYear()}-0842</p>
+                      </div>
+
+                      {/* Memo Fields */}
+                      <div className="space-y-2 mb-8 text-sm md:text-base">
+                        <div className="grid grid-cols-[100px_10px_1fr]">
+                          <span className="font-bold">Yth.</span>
+                          <span>:</span>
+                          <span>Direktur Teknologi Informasi Kekayaan Intelektual</span>
+                        </div>
+                        <div className="grid grid-cols-[100px_10px_1fr]">
+                          <span className="font-bold">Dari</span>
+                          <span>:</span>
+                          <span>Kepala Bagian Umum dan Kepegawaian</span>
+                        </div>
+                        <div className="grid grid-cols-[100px_10px_1fr]">
+                          <span className="font-bold">Hal</span>
+                          <span>:</span>
+                          <span>Laporan Bulanan Manajemen Arsip Digital DJKI Vault</span>
+                        </div>
+                        <div className="grid grid-cols-[100px_10px_1fr]">
+                          <span className="font-bold">Tanggal</span>
+                          <span>:</span>
+                          <span>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        </div>
+                      </div>
+
+                      <hr className="border-black mb-8" />
+
+                      {/* Content */}
+                      <div className="space-y-6 text-justify leading-relaxed">
+                        <p>1. Sehubungan dengan pelaksanaan digitalisasi arsip di lingkungan Direktorat Jenderal Kekayaan Intelektual, bersama ini kami sampaikan laporan ringkasan operasional sistem DJKI Vault untuk periode berjalan.</p>
+                        
+                        <p>2. Berdasarkan data yang tercatat dalam sistem, berikut adalah ringkasan statistik arsip:</p>
+                        
+                        <div className="pl-8 space-y-2">
+                          <p>- Total Berkas Terarsip: <span className="font-bold">{documents.length} Dokumen</span></p>
+                          <p>- Distribusi Keamanan: {Array.from(new Set(documents.map(d => d.securityClassification))).join(', ')}</p>
+                          <p>- Unit Pengolah Aktif: {DJKI_UNITS.length} Direktorat</p>
+                          <p>- Efisiensi Penyimpanan: 85% (Optimal)</p>
+                        </div>
+
+                        <p>3. Sistem saat ini berjalan dengan tingkat ketersediaan (uptime) sebesar 99.9% dan seluruh data telah terenkripsi menggunakan standar AES-256 untuk menjamin keamanan informasi kekayaan intelektual nasional.</p>
+
+                        <p>4. Demikian laporan ini kami sampaikan untuk menjadi maklum dan bahan pertimbangan lebih lanjut. Atas perhatian dan kerja samanya, diucapkan terima kasih.</p>
+                      </div>
+
+                      {/* Signature */}
+                      <div className="mt-20 flex justify-end">
+                        <div className="text-center w-64">
+                          <p className="font-bold">Kepala Bagian Umum,</p>
+                          <div className="h-24"></div>
+                          <p className="font-bold underline">Budi Santoso, S.H., M.H.</p>
+                          <p>NIP. 19750812 200003 1 001</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-20 flex justify-center gap-4 print:hidden">
+                        <button 
+                          onClick={() => window.print()}
+                          className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center gap-2"
+                        >
+                          <Printer className="w-4 h-4" /> Cetak Sekarang
+                        </button>
+                        <button 
+                          onClick={() => setShowNotaDinas(false)}
+                          className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                     <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
