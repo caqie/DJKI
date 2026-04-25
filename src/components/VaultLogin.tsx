@@ -168,6 +168,9 @@ const VaultLogin: React.FC<VaultLoginProps> = ({ onLogin }) => {
                 <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
                   Direktorat Jenderal Kekayaan Intelektual
                 </p>
+                <p className="text-[9px] text-blue-500/40 font-bold mt-2 tracking-widest uppercase">
+                  Developed by caqiestudioproduction
+                </p>
               </div>
             </div>
           </motion.div>

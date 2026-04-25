@@ -53,6 +53,7 @@ export interface IntellectualPropertyDoc {
   fileUrl?: string;
   archiveSequence?: string; // No (Legacy support)
   uploadedBy: string; // User ID
+  uploadDate?: string; // ISO string
 }
 
 export interface ArchiveBox {

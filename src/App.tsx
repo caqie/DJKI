@@ -1,23 +1,89 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Html5QrcodeScanner } from 'html5-qrcode';
 import { QRCodeSVG } from 'qrcode.react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend
+import { Html5Qrcode } from 'html5-qrcode';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, LineChart, Line
 } from 'recharts';
 import * as XLSX from 'xlsx';
-import { 
-  Download, Printer, FileText, Search, Filter, Plus, Eye, Edit, Trash2, 
+import {
+  Download, Printer, FileText, Search, Filter, Plus, Eye, Edit, Trash2,
   Lock, Key, LogOut, User as UserIcon, ShieldCheck, Database, LayoutDashboard,
-  QrCode, ScanLine, Archive
+  QrCode, ScanLine, Archive, X, ListTree, Shield, Building2, Camera, RefreshCw,
+  Upload, FileSpreadsheet, CheckCircle, AlertCircle, Clock, MapPin, FolderOpen, ArrowLeft
 } from 'lucide-react';
-import Sidebar from './components/Sidebar';
-import DocumentCard from './components/DocumentCard';
-import StatsOverview from './components/StatsOverview';
-import VaultLogin from './components/VaultLogin';
-import { IntellectualPropertyDoc, ArchiveBox, User, Role } from './types';
 
+// ======================================================
+// TIPE DATA
+// ======================================================
+export type ArchiveCategory = 'Aktif' | 'Inaktif' | 'Statis' | 'Vital';
+export type SecurityClassification = 'Terbuka' | 'Terbatas' | 'Rahasia';
+export type DocumentForm = 'Asli' | 'Salinan' | 'Scan';
+export type Role = 'SUPERADMIN' | 'UNIT_ADMIN' | 'VIEWER';
+
+export interface Archive {
+  id: string;
+  fileNumber: string;
+  archiveItemNumber: string;
+  boxNumber: string;
+  classificationCode: string;
+  documentForm: DocumentForm;
+  name: string;
+  nipOrApplicant: string;
+  archiveType: string;
+  archiveDescription: string;
+  documentNumber: string;
+  documentDate: string;
+  archiveCategory: ArchiveCategory;
+  securityClassification: SecurityClassification;
+  building: string;
+  floor: string;
+  cabinet: string;
+  shelf: string;
+  mapOrFolder: string;
+  archiveYear: string;
+  processingUnit: string;
+  retentionPeriod: string;
+  additionalNotes: string;
+  uploadedBy?: string;
+  uploadDate?: string;
+  fileUrl?: string;
+}
+
+export interface ArchiveBox {
+  id: string;
+  boxNumber: string;
+  location: string;
+  documentIds: string[];
+  processingUnit: string;
+  yearRange: string;
+  createdAt: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  name: string;
+  role: Role;
+  processingUnit?: string;
+  avatar: string;
+}
+
+export interface LoanRecord {
+  id: string;
+  archiveId: string;
+  borrowerName: string;
+  borrowerNip: string;
+  loanDate: string;
+  returnDate?: string;
+  status: 'Dipinjam' | 'Dikembalikan' | 'Overdue';
+  notes: string;
+}
+
+// ======================================================
+// DATA CONSTANTS
+// ======================================================
 const DJKI_UNITS = [
   'Sekretariat Direktorat Jenderal',
   'Direktorat Hak Cipta dan Desain Industri',
@@ -28,7 +94,33 @@ const DJKI_UNITS = [
   'Direktorat Penyidikan dan Penyelesaian Sengketa'
 ];
 
-const INITIAL_DOCS: IntellectualPropertyDoc[] = [
+const EMPTY_ARCHIVE: Archive = {
+  id: "",
+  fileNumber: "",
+  archiveItemNumber: "",
+  boxNumber: "",
+  classificationCode: "",
+  documentForm: "Asli",
+  name: "",
+  nipOrApplicant: "",
+  archiveType: "",
+  archiveDescription: "",
+  documentNumber: "",
+  documentDate: "",
+  archiveCategory: "Aktif",
+  securityClassification: "Terbuka",
+  building: "",
+  floor: "",
+  cabinet: "",
+  shelf: "",
+  mapOrFolder: "",
+  archiveYear: "",
+  processingUnit: "",
+  retentionPeriod: "",
+  additionalNotes: "",
+};
+
+const INITIAL_DOCS: Archive[] = [
   {
     id: '1',
     fileNumber: 'F-2023-001',
@@ -43,7 +135,6 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     archiveDescription: 'Sertifikat Merek Kopi Kenangan Kelas 30',
     documentNumber: 'IDM000987654',
     documentDate: '2023-11-12',
-    developmentLevel: 'Asli',
     securityClassification: 'Terbuka',
     building: 'Gedung A',
     floor: '1',
@@ -53,7 +144,9 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     archiveYear: '2023',
     processingUnit: 'Direktorat Merek dan Indikasi Geografis',
     retentionPeriod: '10 Tahun',
-    uploadedBy: 'admin-merek'
+    additionalNotes: '',
+    uploadedBy: 'admin-merek',
+    uploadDate: '2023-11-12T08:00:00Z'
   },
   {
     id: '2',
@@ -69,7 +162,6 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     archiveDescription: 'Permohonan Paten Sistem Filtrasi Limbah Cair',
     documentNumber: 'P00202301234',
     documentDate: '2024-01-20',
-    developmentLevel: 'Draft',
     securityClassification: 'Terbatas',
     building: 'Gedung A',
     floor: '1',
@@ -79,7 +171,9 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     archiveYear: '2024',
     processingUnit: 'Direktorat Paten, DTLST, dan Rahasia Dagang',
     retentionPeriod: '20 Tahun',
-    uploadedBy: 'admin-paten'
+    additionalNotes: '',
+    uploadedBy: 'admin-paten',
+    uploadDate: '2024-01-20T09:00:00Z'
   },
   {
     id: '3',
@@ -95,7 +189,6 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     archiveDescription: 'SK Pengangkatan Pegawai DJKI 2024',
     documentNumber: 'SK-2024-001',
     documentDate: '2024-02-15',
-    developmentLevel: 'Asli',
     securityClassification: 'Rahasia',
     building: 'Gedung B',
     floor: '2',
@@ -105,28 +198,9 @@ const INITIAL_DOCS: IntellectualPropertyDoc[] = [
     archiveYear: '2024',
     processingUnit: 'Sekretariat Direktorat Jenderal',
     retentionPeriod: 'Permanen',
-    uploadedBy: 'superadmin'
-  }
-];
-
-const INITIAL_BOXES: ArchiveBox[] = [
-  {
-    id: 'box-1',
-    boxNumber: 'BOX-2024-001',
-    location: 'Gudang A, Rak 1, Baris B',
-    documentIds: ['1', '2'],
-    processingUnit: 'Direktorat Merek dan Indikasi Geografis',
-    yearRange: '2023 - 2024',
-    createdAt: '2024-02-01'
-  },
-  {
-    id: 'box-2',
-    boxNumber: 'BOX-2024-002',
-    location: 'Gudang A, Rak 2, Baris A',
-    documentIds: ['3'],
-    processingUnit: 'Sekretariat Direktorat Jenderal',
-    yearRange: '2024',
-    createdAt: '2024-02-15'
+    additionalNotes: '',
+    uploadedBy: 'superadmin',
+    uploadDate: '2024-02-15T10:00:00Z'
   }
 ];
 
@@ -156,43 +230,659 @@ const INITIAL_USERS: User[] = [
   }
 ];
 
+// ======================================================
+// LOGIN COMPONENT
+// ======================================================
+const VaultLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = INITIAL_USERS.find(u => u.username === username);
+    if (user && password === 'admin123') {
+      onLogin(user);
+    } else {
+      setError('Username atau password salah');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
+      >
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-2xl font-black text-slate-800">DJKI Vault</h1>
+          <p className="text-slate-500 text-sm">Sistem Arsip Digital Terenkripsi</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Masukkan username"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Masukkan password"
+            />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-red-500 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
+            className="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all"
+          >
+            Masuk ke Vault
+          </button>
+        </form>
+
+        <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-100">
+          <p className="text-xs text-amber-800">
+            <strong>Demo:</strong> Username: superadmin, Password: admin123
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ======================================================
+// SIDEBAR COMPONENT
+// ======================================================
+const Sidebar: React.FC<{
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  isCollapsed: boolean;
+  setIsCollapsed: (collapsed: boolean) => void;
+  user: User | null;
+  onLogout: () => void;
+}> = ({ activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed, user, onLogout }) => {
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'archive-list', label: 'Daftar Arsip', icon: Archive },
+    { id: 'search', label: 'Pencarian', icon: Search },
+    { id: 'upload', label: 'Upload Arsip', icon: Upload },
+    { id: 'loans', label: 'Peminjaman', icon: Clock },
+    { id: 'vault', label: 'Vault Rahasia', icon: Lock },
+    { id: 'labels', label: 'Cetak Label', icon: Printer },
+    { id: 'scanner', label: 'Scan QR', icon: ScanLine },
+    { id: 'reports', label: 'Laporan', icon: FileSpreadsheet },
+    { id: 'units', label: 'Unit Kerja', icon: Building2 },
+    { id: 'categories', label: 'Kategori Arsip', icon: FolderOpen },
+    { id: 'classifications', label: 'Klasifikasi', icon: ShieldCheck },
+    { id: 'users', label: 'Manajemen User', icon: UserIcon },
+    { id: 'access', label: 'Hak Akses', icon: Shield },
+    { id: 'settings', label: 'Pengaturan', icon: RefreshCw },
+  ];
+
+  return (
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      <aside
+        className={`fixed lg:static top-0 left-0 h-full bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 text-white z-50 transform transition-all duration-300 ${
+          isCollapsed ? 'w-20' : 'w-64'
+        } ${
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        } flex flex-col`}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-8 overflow-hidden">
+            <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="font-black text-lg truncate">DJKI Vault</h1>
+                <p className="text-[10px] text-slate-400">Arsip Digital</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="hidden lg:flex p-2 hover:bg-white/10 rounded-lg transition-all"
+            >
+              {isCollapsed ? <ListTree className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            </button>
+          </div>
+
+          <nav className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setIsOpen(false);
+                }}
+                title={item.label}
+                className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm transition-all relative group ${
+                  activeTab === item.id
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <item.icon className={`w-5 h-5 shrink-0 transition-all ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
+                <span className={`transition-all duration-300 font-bold ${isCollapsed ? 'opacity-0 w-0 pointer-events-none' : 'opacity-100'}`}>
+                  {item.label}
+                </span>
+                {isCollapsed && (
+                   <div className="absolute left-16 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                     {item.label}
+                   </div>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className={`mt-auto p-6 border-t border-slate-800/50 transition-all duration-300 ${isCollapsed ? 'items-center' : ''}`}>
+          <div className="flex items-center gap-3 mb-4 overflow-hidden">
+            <img
+              src={user?.avatar}
+              alt={user?.name}
+              className="w-10 h-10 rounded-xl bg-white shrink-0 shadow-sm"
+            />
+            <div className={`flex-1 min-w-0 transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+              <p className="text-sm font-bold truncate">{user?.name}</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">{user?.role}</p>
+            </div>
+          </div>
+          <button
+            onClick={onLogout}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl text-sm transition-all mb-4 ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            <LogOut className="w-5 h-5" />
+            <span className={`${isCollapsed ? 'hidden' : 'block'} font-bold`}>Keluar</span>
+          </button>
+          
+          <div className={`pt-4 border-t border-slate-800/50 transition-all duration-300 ${isCollapsed ? 'hidden' : 'block'}`}>
+            <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest font-bold">
+              Created By
+            </p>
+            <p className="text-[11px] text-blue-400 text-center font-black mt-1 uppercase">
+              caqiestudioproduction
+            </p>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+};
+
+// ======================================================
+// ARCHIVE FORM COMPONENT (Input & Edit Same)
+// ======================================================
+const ArchiveForm: React.FC<{
+  archive: Archive | null;
+  onSave: (archive: Archive) => void;
+  onClose: () => void;
+}> = ({ archive, onSave, onClose }) => {
+  const [data, setData] = useState<Archive>(archive || { ...EMPTY_ARCHIVE, id: crypto.randomUUID() });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setData({ ...data, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      ...data,
+      uploadDate: data.uploadDate || new Date().toISOString(),
+      uploadedBy: data.uploadedBy || 'system'
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={onClose}
+                className="p-2 -ml-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"
+                title="Kembali"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl">
+                📝
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-slate-800">
+                  {archive?.id ? 'Edit Arsip' : 'Tambah Arsip Baru'}
+                </h2>
+                <p className="text-slate-500 text-sm">Lengkapi metadata arsip</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Section 1: Identitas Arsip */}
+            <div>
+              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">1</span>
+                Identitas Arsip
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <InputField name="fileNumber" label="Nomor Berkas" value={data.fileNumber} onChange={handleChange} placeholder="F-2024-XXX" />
+                <InputField name="archiveItemNumber" label="Nomor Item" value={data.archiveItemNumber} onChange={handleChange} placeholder="ITEM-01" />
+                <InputField name="boxNumber" label="Nomor Box" value={data.boxNumber} onChange={handleChange} placeholder="BOX-2024-XXX" />
+                <SelectField name="archiveCategory" label="Kategori" value={data.archiveCategory} onChange={handleChange} options={['Aktif', 'Inaktif', 'Statis', 'Vital']} />
+                <InputField name="classificationCode" label="Kode Klasifikasi" value={data.classificationCode} onChange={handleChange} placeholder="HK.01.01" />
+                <SelectField name="documentForm" label="Bentuk Naskah" value={data.documentForm} onChange={handleChange} options={['Asli', 'Salinan', 'Scan']} />
+              </div>
+            </div>
+
+            {/* Section 2: Informasi Arsip */}
+            <div>
+              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">2</span>
+                Informasi Arsip
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputField name="name" label="Nama / Pemohon" value={data.name} onChange={handleChange} placeholder="Nama Lengkap" required />
+                <InputField name="nipOrApplicant" label="NIP / Identitas" value={data.nipOrApplicant} onChange={handleChange} placeholder="NIP atau Identitas" />
+                <InputField name="archiveType" label="Jenis Arsip" value={data.archiveType} onChange={handleChange} placeholder="SK, Sertifikat, dll" required />
+                <InputField name="archiveDescription" label="Keterangan Arsip" value={data.archiveDescription} onChange={handleChange} placeholder="Penjelasan isi arsip" required />
+                <InputField name="documentNumber" label="Nomor Dokumen" value={data.documentNumber} onChange={handleChange} placeholder="No. Surat / Sertifikat" required />
+                <InputField name="documentDate" label="Tanggal Dokumen" type="date" value={data.documentDate} onChange={handleChange} required />
+              </div>
+            </div>
+
+            {/* Section 3: Status & Keamanan */}
+            <div>
+              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">3</span>
+                Status & Keamanan
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <SelectField name="securityClassification" label="Klasifikasi Keamanan" value={data.securityClassification} onChange={handleChange} options={['Terbuka', 'Terbatas', 'Rahasia']} />
+                <InputField name="retentionPeriod" label="Masa Retensi" value={data.retentionPeriod} onChange={handleChange} placeholder="10 Tahun" />
+              </div>
+            </div>
+
+            {/* Section 4: Lokasi Penyimpanan */}
+            <div>
+              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">4</span>
+                Lokasi Penyimpanan
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <InputField name="building" label="Gedung" value={data.building} onChange={handleChange} placeholder="Gedung A" />
+                <InputField name="floor" label="Lantai" value={data.floor} onChange={handleChange} placeholder="1" />
+                <InputField name="cabinet" label="Lemari" value={data.cabinet} onChange={handleChange} placeholder="C-01" />
+                <InputField name="shelf" label="Rak" value={data.shelf} onChange={handleChange} placeholder="Rak 1" />
+                <InputField name="mapOrFolder" label="Map / Folder" value={data.mapOrFolder} onChange={handleChange} placeholder="Map 01" />
+                <InputField name="archiveYear" label="Tahun Arsip" value={data.archiveYear} onChange={handleChange} placeholder="2024" />
+              </div>
+            </div>
+
+            {/* Section 5: Unit & Tambahan */}
+            <div>
+              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">5</span>
+                Unit & Tambahan
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <SelectField name="processingUnit" label="Unit Pengolah" value={data.processingUnit} onChange={handleChange} options={DJKI_UNITS} />
+                <TextAreaField name="additionalNotes" label="Catatan Tambahan" value={data.additionalNotes} onChange={handleChange} rows={3} />
+              </div>
+            </div>
+
+            {/* QR Code Preview */}
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200">
+              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <QrCode className="w-5 h-5" />
+                Preview QR Code Arsip
+              </h3>
+              <div className="flex items-center gap-6">
+                <QRCodeSVG
+                  value={JSON.stringify({
+                    id: data.id,
+                    fileNumber: data.fileNumber,
+                    name: data.name,
+                    archiveDescription: data.archiveDescription
+                  })}
+                  size={120}
+                  level="H"
+                />
+                <div className="text-sm text-slate-600">
+                  <p>QR Code akan digenerate otomatis</p>
+                  <p className="text-xs text-slate-400">Scan untuk melihat detail arsip</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+              >
+                Simpan Arsip
+              </button>
+            </div>
+          </form>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// Helper Form Components
+const InputField: React.FC<{
+  name: string;
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  type?: string;
+  required?: boolean;
+}> = ({ name, label, value, onChange, placeholder, type = 'text', required }) => (
+  <div>
+    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">{label}</label>
+    <input
+      type={type}
+      name={name}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      required={required}
+      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+    />
+  </div>
+);
+
+const SelectField: React.FC<{
+  name: string;
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  options: string[];
+}> = ({ name, label, value, onChange, options }) => (
+  <div>
+    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">{label}</label>
+    <select
+      name={name}
+      value={value}
+      onChange={onChange}
+      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+    >
+      <option value="">Pilih {label}</option>
+      {options.map((opt) => (
+        <option key={opt} value={opt}>{opt}</option>
+      ))}
+    </select>
+  </div>
+);
+
+const TextAreaField: React.FC<{
+  name: string;
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  rows?: number;
+}> = ({ name, label, value, onChange, rows = 3 }) => (
+  <div>
+    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">{label}</label>
+    <textarea
+      name={name}
+      value={value}
+      onChange={onChange}
+      rows={rows}
+      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
+    />
+  </div>
+);
+
+// ======================================================
+// ARCHIVE DETAIL COMPONENT
+// ======================================================
+const ArchiveDetail: React.FC<{
+  archive: Archive;
+  onClose: () => void;
+  onEdit: (archive: Archive) => void;
+}> = ({ archive, onClose, onEdit }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden"
+    >
+      {/* Detail Header */}
+      <div className="p-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex justify-between items-start">
+        <div className="flex gap-6">
+          <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+            <Archive className="w-12 h-12 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="px-2 py-1 bg-white/20 text-[10px] font-black uppercase tracking-widest rounded">
+                {archive.archiveCategory}
+              </span>
+              <span className="px-2 py-1 bg-red-500/80 text-[10px] font-black uppercase tracking-widest rounded">
+                {archive.securityClassification}
+              </span>
+            </div>
+            <h2 className="text-3xl font-black mb-1">{archive.name}</h2>
+            <p className="text-blue-100 font-medium">{archive.archiveDescription}</p>
+          </div>
+        </div>
+        <button 
+          onClick={onClose}
+          className="p-3 hover:bg-white/10 rounded-xl transition-all"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Info */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <DetailItem label="Nomor Berkas" value={archive.fileNumber} icon={FileText} />
+            <DetailItem label="Nomor Dokumen" value={archive.documentNumber} icon={Database} />
+            <DetailItem label="Tanggal Dokumen" value={archive.documentDate} icon={Clock} />
+            <DetailItem label="Jenis Arsip" value={archive.archiveType} icon={ListTree} />
+            <DetailItem label="Bentuk Fisik" value={archive.documentForm} icon={Archive} />
+            <DetailItem label="Masa Retensi" value={archive.retentionPeriod} icon={RefreshCw} />
+          </div>
+
+          <div className="p-6 bg-slate-50 rounded-2xl space-y-4">
+            <h4 className="font-black text-slate-800 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-blue-600" />
+              Lokasi Penyimpanan
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div><p className="text-slate-400 font-bold text-[10px] uppercase">Gedung</p><p className="font-bold text-slate-700">{archive.building}</p></div>
+              <div><p className="text-slate-400 font-bold text-[10px] uppercase">Lantai</p><p className="font-bold text-slate-700">{archive.floor}</p></div>
+              <div><p className="text-slate-400 font-bold text-[10px] uppercase">Lemari</p><p className="font-bold text-slate-700">{archive.cabinet}</p></div>
+              <div><p className="text-slate-400 font-bold text-[10px] uppercase">Rak / Baris</p><p className="font-bold text-slate-700">{archive.shelf}</p></div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="font-black text-slate-800">Catatan Tambahan</h4>
+            <div className="p-6 bg-blue-50/50 rounded-2xl border border-blue-100/50 italic text-slate-600">
+              {archive.additionalNotes || 'Tidak ada catatan tambahan.'}
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <button 
+              onClick={() => onEdit(archive)}
+              className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
+            >
+              <Edit className="w-4 h-4" /> Edit Metadata
+            </button>
+            <button 
+              className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
+              onClick={() => {
+                if (archive.fileUrl) window.open(archive.fileUrl, '_blank');
+                else alert('File PDF belum diunggah.');
+              }}
+            >
+              <Eye className="w-4 h-4" /> Lihat Berkas PDF
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar Info */}
+        <div className="space-y-6">
+          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest text-center">QR Code Identifikasi</p>
+            <QRCodeSVG 
+              value={JSON.stringify({ id: archive.id, fn: archive.fileNumber })} 
+              size={180}
+              level="H"
+              marginSize={2}
+            />
+            <p className="mt-4 text-[11px] text-slate-500 font-bold text-center">ID: {archive.id}</p>
+          </div>
+
+          <div className="p-6 bg-indigo-50 rounded-2xl border border-indigo-100">
+            <h4 className="font-black text-indigo-900 text-xs uppercase mb-4">Metadata System</h4>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-indigo-600 shadow-sm">
+                  <UserIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-indigo-400 font-black uppercase">Diupload Oleh</p>
+                  <p className="text-sm font-bold text-indigo-900">{archive.uploadedBy || 'System'}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-indigo-600 shadow-sm">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-indigo-400 font-black uppercase">Tanggal Upload</p>
+                  <p className="text-sm font-bold text-indigo-900">{archive.uploadDate ? new Date(archive.uploadDate).toLocaleString('id-ID') : '-'}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-indigo-600 shadow-sm">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-indigo-400 font-black uppercase">Unit Pengolah</p>
+                  <p className="text-sm font-bold text-indigo-900">{archive.processingUnit}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const DetailItem: React.FC<{ label: string; value: string; icon: React.ComponentType<any> }> = ({ label, value, icon: Icon }) => (
+  <div className="flex items-start gap-3">
+    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 shrink-0">
+      <Icon className="w-5 h-5" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-sm font-bold text-slate-800 leading-tight">{value || '-'}</p>
+    </div>
+  </div>
+);
+
+// ======================================================
+// MAIN APP COMPONENT
+// ======================================================
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [documents, setDocuments] = useState<IntellectualPropertyDoc[]>(INITIAL_DOCS);
-  const [boxes, setBoxes] = useState<ArchiveBox[]>(INITIAL_BOXES);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('Semua');
-  const [scannedBoxData, setScannedBoxData] = useState<{
-    boxId: string;
-    boxNumber: string;
-    titles: string[];
-    location?: string;
-  } | null>(null);
-
-  const [selectedDocForView, setSelectedDocForView] = useState<IntellectualPropertyDoc | null>(null);
-  const [selectedDocForEdit, setSelectedDocForEdit] = useState<IntellectualPropertyDoc | null>(null);
-  const [showNotaDinas, setShowNotaDinas] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [documents, setDocuments] = useState<Archive[]>(INITIAL_DOCS);
+  const [boxes, setBoxes] = useState<ArchiveBox[]>([]);
   const [selectedBox, setSelectedBox] = useState<ArchiveBox | null>(null);
-  const [scanHistory, setScanHistory] = useState<any[]>(() => {
-    const saved = localStorage.getItem('djki_scan_history');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [loans, setLoans] = useState<LoanRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState('Semua');
+  const [filterLocation, setFilterLocation] = useState('Semua');
+  const [selectedDocForEdit, setSelectedDocForEdit] = useState<Archive | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [scannedData, setScannedData] = useState<any>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showVault, setShowVault] = useState(false);
+  const [vaultPassword, setVaultPassword] = useState('');
+  const [selectedDocForDetail, setSelectedDocForDetail] = useState<Archive | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [reportPeriod, setReportPeriod] = useState('Semua');
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
 
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  // Update clock every second
   useEffect(() => {
-    localStorage.setItem('djki_scan_history', JSON.stringify(scanHistory));
-  }, [scanHistory]);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
+  // Clear detail view when tab changes
+  useEffect(() => {
+    setSelectedDocForDetail(null);
+  }, [activeTab]);
+
+  // Filter documents
   const filteredDocs = useMemo(() => {
     return documents.filter(doc => {
-      // RBAC Filtering
-      const isAuthorized = 
-        currentUser?.role === 'SUPERADMIN' || 
-        doc.processingUnit === currentUser?.processingUnit;
-
+      const isAuthorized = currentUser?.role === 'SUPERADMIN' || 
+        doc.processingUnit === currentUser?.processingUnit ||
+        doc.securityClassification !== 'Rahasia';
+      
       if (!isAuthorized) return false;
 
       const searchStr = searchQuery.toLowerCase();
@@ -200,1761 +890,1008 @@ const App: React.FC = () => {
         doc.archiveDescription.toLowerCase().includes(searchStr) || 
         doc.documentNumber.toLowerCase().includes(searchStr) ||
         doc.name.toLowerCase().includes(searchStr) ||
-        doc.nipOrApplicant.toLowerCase().includes(searchStr) ||
-        doc.processingUnit.toLowerCase().includes(searchStr) ||
-        doc.fileNumber.toLowerCase().includes(searchStr) ||
-        doc.archiveYear.toLowerCase().includes(searchStr);
-        
-      const matchesCategory = filterCategory === 'Semua' || doc.archiveType === filterCategory;
-      return matchesSearch && matchesCategory;
+        doc.fileNumber.toLowerCase().includes(searchStr);
+      
+      const matchesCategory = filterCategory === 'Semua' || doc.archiveCategory === filterCategory;
+      const matchesLocation = filterLocation === 'Semua' || doc.building === filterLocation;
+      
+      return matchesSearch && matchesCategory && matchesLocation;
     });
-  }, [documents, searchQuery, filterCategory, currentUser]);
+  }, [documents, searchQuery, filterCategory, filterLocation, currentUser]);
 
-  const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(documents.map(doc => ({
-      'Nomor Berkas': doc.fileNumber,
-      'Nomor Item': doc.archiveItemNumber,
-      'No Box': doc.boxNumber,
-      'Kategori': doc.archiveCategory,
-      'Klasifikasi': doc.classificationCode,
-      'Bentuk': doc.documentForm,
-      'Nama': doc.name,
-      'NIP/Pemohon': doc.nipOrApplicant,
-      'Jenis Arsip': doc.archiveType,
-      'Keterangan': doc.archiveDescription,
-      'No Dokumen': doc.documentNumber,
-      'Tahun': doc.archiveYear,
-      'Unit Pengolah': doc.processingUnit,
-      'Lokasi': `${doc.building}, L${doc.floor}, C${doc.cabinet}`
-    })));
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Daftar Arsip");
-    XLSX.writeFile(workbook, `Daftar_Arsip_DJKI_${new Date().toISOString().split('T')[0]}.xlsx`);
+  // Stats per unit
+  const unitStats = useMemo(() => {
+    return DJKI_UNITS.map(unit => ({
+      name: unit,
+      count: documents.filter(d => d.processingUnit === unit).length
+    }));
+  }, [documents]);
+
+  // Handle login
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    setIsLoggedIn(true);
   };
 
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [newDoc, setNewDoc] = useState<Partial<IntellectualPropertyDoc>>({
-    fileNumber: '',
-    archiveItemNumber: '',
-    boxNumber: '',
-    archiveCategory: 'Aktif',
-    classificationCode: '',
-    documentForm: 'Asli',
-    name: '',
-    nipOrApplicant: '',
-    archiveType: '',
-    archiveDescription: '',
-    documentNumber: '',
-    documentDate: new Date().toISOString().split('T')[0],
-    developmentLevel: 'Asli',
-    securityClassification: 'Terbuka',
-    building: '',
-    floor: '',
-    cabinet: '',
-    shelf: '',
-    mapOrFolder: '',
-    archiveYear: new Date().getFullYear().toString(),
-    processingUnit: '',
-    retentionPeriod: '',
-    additionalNotes: ''
-  });
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
+  // Handle logout
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    setActiveTab('dashboard');
   };
 
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUploading(true);
-    setUploadSuccess(false);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const doc: IntellectualPropertyDoc = {
-        id: Date.now().toString(),
-        fileNumber: newDoc.fileNumber || '',
-        archiveItemNumber: newDoc.archiveItemNumber || '',
-        boxNumber: newDoc.boxNumber || '',
-        archiveCategory: newDoc.archiveCategory as any || 'Aktif',
-        classificationCode: newDoc.classificationCode || '',
-        documentForm: newDoc.documentForm as any || 'Asli',
-        name: newDoc.name || '',
-        nipOrApplicant: newDoc.nipOrApplicant || '',
-        archiveType: newDoc.archiveType || '',
-        archiveDescription: newDoc.archiveDescription || '',
-        documentNumber: newDoc.documentNumber || ('DOC-' + Math.floor(10000000 + Math.random() * 90000000)),
-        documentDate: newDoc.documentDate || new Date().toISOString().split('T')[0],
-        developmentLevel: newDoc.developmentLevel as any || 'Asli',
-        securityClassification: newDoc.securityClassification as any || 'Terbuka',
-        building: newDoc.building || '',
-        floor: newDoc.floor || '',
-        cabinet: newDoc.cabinet || '',
-        shelf: newDoc.shelf || '',
-        mapOrFolder: newDoc.mapOrFolder || '',
-        archiveYear: newDoc.archiveYear || new Date().getFullYear().toString(),
-        processingUnit: newDoc.processingUnit || '',
-        retentionPeriod: newDoc.retentionPeriod || '',
-        additionalNotes: newDoc.additionalNotes || '',
-        uploadedBy: currentUser?.id || 'system'
-      };
-
-      setDocuments(prev => [doc, ...prev]);
-      setUploadSuccess(true);
-      
-      setTimeout(() => {
-        setActiveTab('search');
-        setNewDoc({ 
-          fileNumber: '',
-          archiveItemNumber: '',
-          boxNumber: '',
-          archiveCategory: 'Aktif',
-          classificationCode: '',
-          documentForm: 'Asli',
-          name: '',
-          nipOrApplicant: '',
-          archiveType: '',
-          archiveDescription: '',
-          documentNumber: '',
-          documentDate: new Date().toISOString().split('T')[0],
-          developmentLevel: 'Asli',
-          securityClassification: 'Terbuka',
-          building: '',
-          floor: '',
-          cabinet: '',
-          shelf: '',
-          mapOrFolder: '',
-          archiveYear: new Date().getFullYear().toString(),
-          processingUnit: '',
-          retentionPeriod: '',
-          additionalNotes: ''
-        });
-        setSelectedFile(null);
-        setUploadSuccess(false);
-      }, 2000);
-    } catch (error) {
-      console.error("Upload failed", error);
-    } finally {
-      setIsUploading(false);
+  // Save archive
+  const saveArchive = (archive: Archive) => {
+    const exist = documents.find(d => d.id === archive.id);
+    if (exist) {
+      setDocuments(documents.map(d => d.id === archive.id ? archive : d));
+    } else {
+      setDocuments([...documents, archive]);
     }
-  };
-
-  useEffect(() => {
-    let scanner: Html5QrcodeScanner | null = null;
-
-    if (activeTab === 'scanner') {
-      // Small delay to ensure the DOM element #reader is rendered
-      const timer = setTimeout(() => {
-        const readerElement = document.getElementById('reader');
-        if (!readerElement) return;
-
-        scanner = new Html5QrcodeScanner(
-          "reader",
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          /* verbose= */ false
-        );
-
-        scanner.render((decodedText) => {
-          try {
-            const data = JSON.parse(decodedText);
-            if (data.boxId) {
-              const box = boxes.find(b => b.id === data.boxId);
-              
-              // RBAC Check for Scanned Box
-              const isAuthorized = 
-                currentUser?.role === 'SUPERADMIN' || 
-                box?.processingUnit === currentUser?.processingUnit;
-
-              if (!isAuthorized) {
-                alert('Akses Ditolak: Anda tidak memiliki izin untuk melihat isi box dari unit pengolah lain.');
-                return;
-              }
-
-              const scanResult = {
-                boxId: data.boxId,
-                boxNumber: data.boxNumber || 'Unknown',
-                titles: data.titles || [],
-                location: box?.location,
-                timestamp: new Date().toISOString()
-              };
-              setScannedBoxData(scanResult);
-              
-              // Add to history if not already the latest
-              setScanHistory(prev => {
-                const exists = prev.find(h => h.boxId === data.boxId && h.timestamp.split('T')[0] === scanResult.timestamp.split('T')[0]);
-                if (exists) return prev;
-                return [scanResult, ...prev].slice(0, 10);
-              });
-            } else if (data.num) {
-              setSearchQuery(data.num);
-              setActiveTab('search');
-              scanner?.clear();
-            }
-          } catch (e) {
-            console.error("Invalid QR Code", e);
-          }
-        }, (error) => {
-          // console.warn(error);
-        });
-      }, 300); // 300ms delay to account for animations
-
-      return () => {
-        clearTimeout(timer);
-        if (scanner) {
-          scanner.clear().catch(error => console.error("Failed to clear scanner", error));
-        }
-      };
-    }
-  }, [activeTab, boxes, currentUser]);
-
-  const handleDeleteDoc = (id: string) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus arsip ini?')) {
-      setDocuments(prev => prev.filter(doc => doc.id !== id));
-    }
-  };
-
-  const handleUpdateDoc = (updatedDoc: IntellectualPropertyDoc) => {
-    setDocuments(prev => prev.map(doc => doc.id === updatedDoc.id ? updatedDoc : doc));
+    setShowForm(false);
     setSelectedDocForEdit(null);
   };
 
-  const handleAddUser = (user: User) => {
-    setUsers(prev => [...prev, user]);
-  };
-
-  const handleDeleteUser = (id: string) => {
-    if (window.confirm('Hapus pengguna ini?')) {
-      setUsers(prev => prev.filter(u => u.id !== id));
+  // Delete archive
+  const deleteArchive = (id: string) => {
+    if (window.confirm('Hapus arsip ini?')) {
+      setDocuments(documents.filter(d => d.id !== id));
     }
   };
 
+  // Export to Excel
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(documents.map(doc => ({
+      'Nomor Berkas': doc.fileNumber,
+      'Nama': doc.name,
+      'Jenis': doc.archiveType,
+      'Kategori': doc.archiveCategory,
+      'Unit': doc.processingUnit,
+      'Lokasi': `${doc.building}, L${doc.floor}`,
+      'Tahun': doc.archiveYear
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Arsip");
+    XLSX.writeFile(workbook, `Arsip_DJKI_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // Import from Excel
+  const importFromExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const data = event.target?.result;
+      const workbook = XLSX.read(data, { type: 'binary' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet);
+      
+      const newDocs: Archive[] = json.map((row: any, index) => ({
+        ...EMPTY_ARCHIVE,
+        id: crypto.randomUUID(),
+        fileNumber: row['Nomor Berkas'] || `F-${new Date().getFullYear()}-${index + 1}`,
+        name: row['Nama'] || '',
+        archiveType: row['Jenis'] || '',
+        archiveCategory: (row['Kategori'] as ArchiveCategory) || 'Aktif',
+        processingUnit: row['Unit'] || DJKI_UNITS[0],
+        building: row['Gedung'] || '',
+        floor: row['Lantai'] || '',
+        archiveYear: row['Tahun'] || new Date().getFullYear().toString(),
+        uploadDate: new Date().toISOString(),
+        uploadedBy: currentUser?.id
+      }));
+
+      setDocuments([...documents, ...newDocs]);
+      alert(`Berhasil import ${newDocs.length} arsip`);
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // QR Scanner
+  useEffect(() => {
+    const startScanner = async () => {
+      if (activeTab === 'scanner' && isScanning) {
+        try {
+          const devs = await Html5Qrcode.getCameras();
+          setCameras(devs.map(d => ({ id: d.id, label: d.label })));
+          if (devs.length > 0 && !selectedCameraId) {
+            setSelectedCameraId(devs[0].id);
+          }
+
+          scannerRef.current = new Html5Qrcode('reader');
+          await scannerRef.current.start(
+            selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+              try {
+                const data = JSON.parse(decodedText);
+                setScannedData(data);
+                setIsScanning(false);
+              } catch (e) {
+                setScannedData({ raw: decodedText });
+                setIsScanning(false);
+              }
+            },
+            () => {}
+          );
+        } catch (err) {
+          console.error("Camera error:", err);
+          setIsScanning(false);
+        }
+      }
+    };
+
+    startScanner();
+
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+      }
+    };
+  }, [activeTab, isScanning, selectedCameraId]);
+
+  // Loan functions
+  const createLoan = (archiveId: string, borrowerName: string, borrowerNip: string) => {
+    const loan: LoanRecord = {
+      id: crypto.randomUUID(),
+      archiveId,
+      borrowerName,
+      borrowerNip,
+      loanDate: new Date().toISOString(),
+      status: 'Dipinjam',
+      notes: ''
+    };
+    setLoans([...loans, loan]);
+  };
+
+  const returnLoan = (loanId: string) => {
+    setLoans(loans.map(l => 
+      l.id === loanId 
+        ? { ...l, status: 'Dikembalikan', returnDate: new Date().toISOString() }
+        : l
+    ));
+  };
+
+  // Vault access
+  const accessVault = () => {
+    if (vaultPassword === 'vault123') {
+      setShowVault(true);
+      setVaultPassword('');
+    } else {
+      alert('Password vault salah!');
+    }
+  };
+
+  // Print label
+  const printLabel = () => {
+    window.print();
+  };
+
+  // Show login if not logged in
   if (!isLoggedIn) {
-    return <VaultLogin onLogin={(user) => {
-      setCurrentUser(user);
-      setIsLoggedIn(true);
-    }} />;
+    return <VaultLogin onLogin={handleLogin} />;
   }
 
   return (
-    <div className="min-h-screen flex bg-[#f8fafc]">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isOpen={isSidebarOpen} 
+    <div className="flex min-h-screen bg-slate-100">
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
         user={currentUser}
-        onLogout={() => {
-          setIsLoggedIn(false);
-          setCurrentUser(null);
-        }}
+        onLogout={handleLogout}
       />
-      
-      <main className="flex-1 lg:ml-64 p-4 md:p-10 transition-all duration-300">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-          <div className="flex items-center gap-5 w-full md:w-auto">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 shadow-sm"
-            >
-              ☰
-            </button>
-            <div className="hidden lg:flex w-14 h-14 bg-white p-3 rounded-2xl shadow-xl shadow-blue-500/5 items-center justify-center border border-slate-100">
-              <img 
-                src="https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95" 
-                alt="DJKI Logo" 
-                className="w-full h-full object-contain"
-                referrerPolicy="no-referrer"
-              />
+
+      <main className="flex-1 p-4 lg:p-8 overflow-auto">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="lg:hidden p-3 bg-white rounded-xl shadow-sm"
+              >
+                ☰
+              </button>
+              <div>
+                <h1 className="text-2xl font-black text-slate-800 capitalize">
+                  {activeTab === 'dashboard' && 'Dashboard Analitik'}
+                  {activeTab === 'archive-list' && 'Daftar Arsip'}
+                  {activeTab === 'search' && 'Pencarian Arsip'}
+                  {activeTab === 'upload' && 'Upload Arsip'}
+                  {activeTab === 'loans' && 'Peminjaman Arsip'}
+                  {activeTab === 'vault' && 'Vault Rahasia'}
+                  {activeTab === 'labels' && 'Cetak Label'}
+                  {activeTab === 'scanner' && 'Scan QR Code'}
+                  {activeTab === 'reports' && 'Laporan'}
+                  {activeTab === 'units' && 'Unit DJKI'}
+                  {activeTab === 'users' && 'Pengguna'}
+                  {activeTab === 'settings' && 'Pengaturan'}
+                </h1>
+                <p className="text-slate-500 text-sm">Sistem Manajemen Arsip Digital DJKI</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight capitalize">
-                {activeTab === 'dashboard' && 'Dashboard Analitik'}
-                {activeTab === 'archive-list' && 'Daftar Arsip'}
-                {activeTab === 'search' && 'Pencarian Berkas'}
-                {activeTab === 'upload' && 'Arsip Baru'}
-                {activeTab === 'labels' && 'Cetak Label Arsip'}
-                {activeTab === 'scanner' && 'Scan Label Box'}
-                {activeTab === 'categories' && 'Manajemen Kategori'}
-                {activeTab === 'reports' && 'Laporan & Analitik'}
-                {activeTab === 'settings' && 'Pengaturan Sistem'}
-              </h2>
-              <p className="text-slate-500 text-sm font-medium">Sistem Manajemen Arsip Digital DJKI Vault.</p>
+
+            <div className="flex items-center gap-6">
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-slate-800 font-black flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  {currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={exportToExcel}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all"
+                >
+                  <Download className="w-3 h-3" />
+                  Export
+                </button>
+                <label className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 cursor-pointer transition-all">
+                  <Upload className="w-3 h-3" />
+                  Import
+                  <input type="file" accept=".xlsx,.xls" onChange={importFromExcel} className="hidden" />
+                </label>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto justify-end">
-             <div className="relative hidden sm:block">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
-                  type="text" 
-                  placeholder="Cari nomor berkas..." 
-                  className="pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 w-48 md:w-72 transition-all"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+          </header>
+
+          {/* Dashboard */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-8">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard title="Total Arsip" value={documents.length} icon={Archive} color="bg-blue-600" />
+                <StatCard title="Arsip Aktif" value={documents.filter(d => d.archiveCategory === 'Aktif').length} icon={CheckCircle} color="bg-emerald-600" />
+                <StatCard title="Arsip Rahasia" value={documents.filter(d => d.securityClassification === 'Rahasia').length} icon={Lock} color="bg-red-600" />
+                <StatCard title="Sedang Dipinjam" value={loans.filter(l => l.status === 'Dipinjam').length} icon={Clock} color="bg-amber-600" />
+              </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-2xl shadow-sm">
+                  <h3 className="font-bold text-slate-800 mb-4">Statistik Per Unit DJKI</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={unitStats}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl shadow-sm">
+                  <h3 className="font-bold text-slate-800 mb-4">Distribusi Kategori</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Aktif', value: documents.filter(d => d.archiveCategory === 'Aktif').length },
+                          { name: 'Inaktif', value: documents.filter(d => d.archiveCategory === 'Inaktif').length },
+                          { name: 'Statis', value: documents.filter(d => d.archiveCategory === 'Statis').length },
+                          { name: 'Vital', value: documents.filter(d => d.archiveCategory === 'Vital').length },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        dataKey="value"
+                      >
+                        {['#10b981', '#f59e0b', '#6366f1', '#ef4444'].map((color, i) => (
+                          <Cell key={i} fill={color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Arsip Tab */}
+          {activeTab === 'upload' && (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-200 shadow-sm">
+              <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-8">
+                <Upload className="w-10 h-10" />
+              </div>
+              <h2 className="text-3xl font-black text-slate-800 mb-2 font-sans tracking-tight">Unggah Berkas Baru</h2>
+              <p className="text-slate-500 mb-10 max-w-sm text-center font-medium leading-relaxed">Digitalisasi arsip fisik Anda dengan sistem penomoran dan metadata terintegrasi DJKI.</p>
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-10 py-5 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-2xl shadow-blue-200 flex items-center gap-3 active:scale-95"
+              >
+                <Plus className="w-5 h-5" /> Mulai Registrasi Arsip
+              </button>
+            </div>
+          )}
+
+          {/* Archive List / Detail */}
+          {activeTab === 'archive-list' && (
+            <div className="space-y-6">
+              {selectedDocForDetail ? (
+                <ArchiveDetail 
+                  archive={selectedDocForDetail} 
+                  onClose={() => setSelectedDocForDetail(null)}
+                  onEdit={(archive) => {
+                    setSelectedDocForEdit(archive);
+                    setShowForm(true);
+                  }}
                 />
-             </div>
-             <button className="bg-white border border-slate-200 text-slate-600 p-3.5 rounded-2xl hover:bg-slate-50 transition-all relative shadow-sm">
-                <span className="text-lg">🔔</span>
-                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-             </button>
-             <div className="flex items-center gap-3 pl-4 border-l border-slate-200 ml-2">
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs font-black text-slate-900 leading-none">{currentUser?.name}</p>
-                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">{currentUser?.role}</p>
-                </div>
-                <img src={currentUser?.avatar} alt="User" className="w-11 h-11 rounded-2xl bg-white p-0.5 border border-slate-200 shadow-sm" />
-             </div>
-          </div>
-        </header>
-
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            {activeTab === 'dashboard' && (
-              <div className="animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                  {[
-                    { label: 'Total Berkas', value: filteredDocs.length, color: 'blue', icon: '📁' },
-                    { label: 'Arsip Terbuka', value: filteredDocs.filter(d => d.securityClassification === 'Terbuka').length, color: 'emerald', icon: '🔓' },
-                    { label: 'Arsip Terbatas', value: filteredDocs.filter(d => d.securityClassification === 'Terbatas').length, color: 'amber', icon: '🔒' },
-                    { label: 'Arsip Rahasia', value: filteredDocs.filter(d => d.securityClassification === 'Rahasia').length, color: 'red', icon: '🕵️' },
-                  ].map((stat, idx) => (
-                    <div key={idx} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-3 ${
-                        stat.color === 'blue' ? 'bg-blue-100 text-blue-600' :
-                        stat.color === 'red' ? 'bg-red-100 text-red-600' :
-                        stat.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' :
-                        'bg-amber-100 text-amber-600'
-                      }`}>
-                        {stat.icon}
-                      </div>
-                      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{stat.label}</p>
-                      <p className="text-2xl font-black text-slate-800">{stat.value}</p>
-                    </div>
-                  ))}
-                </div>
-                
-                <StatsOverview docs={filteredDocs} />
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mt-8">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-slate-800">Dokumen Terbaru</h3>
-                    <button 
-                      onClick={() => setActiveTab('archive-list')}
-                      className="text-blue-600 text-sm font-bold hover:underline"
+              ) : (
+                <div className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pt-2 border-t border-slate-100">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedDocForEdit(null);
+                        setShowForm(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-black hover:bg-blue-700 shadow-sm shadow-blue-100 transition-all flex items-center gap-2"
                     >
-                      Lihat Semua →
+                      <Plus className="w-3 h-3" /> Tambah Arsip
+                    </button>
+                    <button
+                      onClick={exportToExcel}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 shadow-sm shadow-emerald-100 transition-all flex items-center gap-2"
+                    >
+                      <Download className="w-3 h-3" /> Excel
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      className="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-black hover:bg-slate-700 shadow-sm transition-all flex items-center gap-2"
+                    >
+                      <Printer className="w-3 h-3" /> Cetak
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredDocs.slice(0, 3).map(doc => (
-                      <DocumentCard 
-                        key={doc.id} 
-                        doc={doc} 
-                        box={boxes.find(b => b.documentIds.includes(doc.id))}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'archive-list' && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-4 w-full md:w-auto">
-                      <div className="relative flex-1 md:w-80">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                        <input 
-                          type="text" 
-                          placeholder="Pencarian global..." 
-                          className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </div>
-                      <select 
-                        className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 focus:outline-none"
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                      >
-                        <option value="Semua">Semua Jenis</option>
-                        {Array.from(new Set(documents.map(d => d.archiveType))).map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                      <select 
-                        className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 focus:outline-none"
-                        onChange={(e) => {
-                          const unit = e.target.value;
-                          if (unit === 'Semua') {
-                            setSearchQuery('');
-                          } else {
-                            setSearchQuery(unit);
-                          }
-                        }}
-                      >
-                        <option value="Semua">Semua Unit</option>
-                        {DJKI_UNITS.map(unit => (
-                          <option key={unit} value={unit}>{unit}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                      <button 
-                        onClick={() => window.print()}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors"
-                      >
-                        <Printer className="w-4 h-4" />
-                        Cetak Daftar
-                      </button>
-                      <button 
-                        onClick={exportToExcel}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                        Export Excel
-                      </button>
-                      <button 
-                        onClick={() => setActiveTab('upload')}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Tambah Arsip
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">No. Berkas</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan Arsip</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit Pengolah</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tahun</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</th>
-                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {filteredDocs.map((doc) => (
-                          <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
-                            <td className="px-6 py-4 text-sm font-mono text-slate-600">{doc.fileNumber}</td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm font-bold text-slate-800">{doc.archiveDescription}</p>
-                              <p className="text-[10px] text-slate-500">{doc.documentNumber}</p>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-600">{doc.processingUnit}</td>
-                            <td className="px-6 py-4 text-sm text-slate-600">{doc.archiveYear}</td>
-                            <td className="px-6 py-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                doc.archiveCategory === 'Vital' ? 'bg-red-100 text-red-700 border-red-200' :
-                                doc.archiveCategory === 'Aktif' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                                doc.archiveCategory === 'Inaktif' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                'bg-slate-100 text-slate-700 border-slate-200'
-                              }`}>
-                                {doc.archiveCategory}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <button 
-                                  title="Lihat Detail"
-                                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  onClick={() => setSelectedDocForView(doc)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  title="Edit Arsip"
-                                  className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                  onClick={() => setSelectedDocForEdit(doc)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  title="Hapus Arsip"
-                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  onClick={() => {
-                                    if(confirm('Apakah Anda yakin ingin menghapus arsip ini?')) {
-                                      setDocuments(documents.filter(d => d.id !== doc.id));
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {filteredDocs.length === 0 && (
-                    <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-                      <div className="text-6xl mb-4">🏜️</div>
-                      <p className="font-medium">Tidak ada data ditemukan</p>
-                    </div>
-                  )}
-                </div>
-
-                {selectedDocForView && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                      <div className="bg-white rounded-3xl p-6 relative">
-                        <button 
-                          onClick={() => setSelectedDocForView(null)}
-                          className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-colors z-10"
-                        >
-                          ✕
-                        </button>
-                        <DocumentCard 
-                          doc={selectedDocForView} 
-                          box={boxes.find(b => b.documentIds.includes(selectedDocForView.id))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedDocForEdit && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                      <div className="bg-white rounded-3xl p-8 relative shadow-2xl">
-                        <button 
-                          onClick={() => setSelectedDocForEdit(null)}
-                          className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-colors z-10"
-                        >
-                          ✕
-                        </button>
-                        
-                        <div className="flex items-center gap-4 mb-8">
-                          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl">
-                            📝
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-xl text-slate-800">Edit Metadata Arsip</h3>
-                            <p className="text-slate-500 text-sm">Perbarui informasi berkas {selectedDocForEdit.fileNumber}</p>
-                          </div>
-                        </div>
-
-                        <form 
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            setDocuments(documents.map(d => d.id === selectedDocForEdit.id ? selectedDocForEdit : d));
-                            setSelectedDocForEdit(null);
-                          }}
-                          className="space-y-6"
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Keterangan Arsip</label>
-                              <input 
-                                type="text"
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                                value={selectedDocForEdit.archiveDescription}
-                                onChange={(e) => setSelectedDocForEdit({...selectedDocForEdit, archiveDescription: e.target.value})}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Unit Pengolah</label>
-                              <select 
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                                value={selectedDocForEdit.processingUnit}
-                                onChange={(e) => setSelectedDocForEdit({...selectedDocForEdit, processingUnit: e.target.value})}
-                              >
-                                {DJKI_UNITS.map(unit => (
-                                  <option key={unit} value={unit}>{unit}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tahun</label>
-                              <input 
-                                type="text"
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                                value={selectedDocForEdit.archiveYear}
-                                onChange={(e) => setSelectedDocForEdit({...selectedDocForEdit, archiveYear: e.target.value})}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Kategori</label>
-                              <select 
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                                value={selectedDocForEdit.archiveCategory}
-                                onChange={(e) => setSelectedDocForEdit({...selectedDocForEdit, archiveCategory: e.target.value as any})}
-                              >
-                                <option value="Vital">Vital</option>
-                                <option value="Aktif">Aktif</option>
-                                <option value="Inaktif">Inaktif</option>
-                                <option value="Statis">Statis</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">No. Box</label>
-                              <input 
-                                type="text"
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                                value={selectedDocForEdit.boxNumber}
-                                onChange={(e) => setSelectedDocForEdit({...selectedDocForEdit, boxNumber: e.target.value})}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Lokasi (Gedung)</label>
-                              <input 
-                                type="text"
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                                value={selectedDocForEdit.building}
-                                onChange={(e) => setSelectedDocForEdit({...selectedDocForEdit, building: e.target.value})}
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="pt-6 flex gap-3">
-                            <button 
-                              type="button"
-                              onClick={() => setSelectedDocForEdit(null)}
-                              className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
-                            >
-                              Batal
-                            </button>
-                            <button 
-                              type="submit"
-                              className="flex-1 py-3 bg-amber-600 text-white rounded-2xl font-bold hover:bg-amber-700 shadow-lg shadow-amber-200 transition-all"
-                            >
-                              Simpan Perubahan
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'search' && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-                      <input 
-                        type="text" 
-                        placeholder="Cari berdasarkan nama, nomor pendaftaran, atau pemohon..." 
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  
+                  <div className="flex flex-1 min-w-[300px] gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Cari metadata arsip..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       />
                     </div>
-                    <select 
-                      className="bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none"
+                    <select
                       value={filterCategory}
                       onChange={(e) => setFilterCategory(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none"
                     >
-                      <option>Semua</option>
-                      <option>Sertifikat</option>
-                      <option>Kutipan</option>
-                      <option>Permohonan</option>
-                      <option>Sanggahan</option>
-                      <option>Tolakan</option>
-                      <option>SK</option>
-                      <option>Lainnya</option>
+                      <option value="Semua">Semua Kategori</option>
+                      <option value="Aktif">Aktif</option>
+                      <option value="Inaktif">Inaktif</option>
+                      <option value="Statis">Statis</option>
+                      <option value="Vital">Vital</option>
+                    </select>
+                    <select
+                      value={filterLocation}
+                      onChange={(e) => setFilterLocation(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none"
+                    >
+                      <option value="Semua">Semua Lokasi</option>
+                      {Array.from(new Set(documents.map(d => d.building))).map(building => (
+                        <option key={building} value={building}>{building}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {filteredDocs.length > 0 ? (
-                    filteredDocs.map(doc => (
-                      <DocumentCard 
-                        key={doc.id} 
-                        doc={doc} 
-                        box={boxes.find(b => b.documentIds.includes(doc.id))}
-                      />
-                    ))
-                  ) : (
-                    <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-400">
-                       <div className="text-6xl mb-4">🏜️</div>
-                       <p className="font-medium">Tidak ada dokumen yang ditemukan</p>
-                       <p className="text-xs">Coba gunakan kata kunci atau filter lain.</p>
-                    </div>
-                  )}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">No Berkas</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Nama</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Lokasi</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Kategori</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDocs.map((doc) => (
+                      <tr key={doc.id} className="border-b hover:bg-slate-50">
+                        <td className="px-4 py-3 text-sm font-mono">{doc.fileNumber}</td>
+                        <td className="px-4 py-3 text-sm">{doc.name}</td>
+                        <td className="px-4 py-3 text-sm">{doc.building} / {doc.floor}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${
+                            doc.archiveCategory === 'Aktif' ? 'bg-emerald-100 text-emerald-700' :
+                            doc.archiveCategory === 'Vital' ? 'bg-red-100 text-red-700' :
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {doc.archiveCategory}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setSelectedDocForDetail(doc)}
+                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                              title="Detail"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedDocForEdit(doc);
+                                setShowForm(true);
+                              }}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteArchive(doc.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            )}
+            </div>
+          )}
+
+          {/* Scanner */}
+          {activeTab === 'scanner' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                <h3 className="font-black text-slate-800 mb-6 flex items-center gap-2">
+                  <Camera className="w-6 h-6 text-blue-600" />
+                  Scanner QR Arsip
+                </h3>
+                
+                <div className="mb-6">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Pilih Sumber Kamera</label>
+                  <select 
+                    value={selectedCameraId}
+                    onChange={(e) => setSelectedCameraId(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {cameras.length === 0 && <option>Mencari kamera...</option>}
+                    {cameras.map(cam => (
+                      <option key={cam.id} value={cam.id}>{cam.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div id="reader" className="aspect-square bg-slate-900 rounded-3xl overflow-hidden border-4 border-slate-100 shadow-inner ring-1 ring-slate-200"></div>
+                
+                <div className="flex gap-4 mt-8">
+                  <button
+                    onClick={() => setIsScanning(!isScanning)}
+                    className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2 ${
+                      isScanning 
+                        ? 'bg-red-500 text-white hover:bg-red-600' 
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isScanning ? (
+                      <><RefreshCw className="w-4 h-4 animate-spin-slow" /> Hentikan Scanner</>
+                    ) : (
+                      <><ScanLine className="w-4 h-4" /> Buka Kamera</>
+                    )}
+                  </button>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'upload' && (
-              <div className="max-w-3xl mx-auto">
-                {uploadSuccess ? (
-                  <div className="bg-white p-12 rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center text-center">
-                    <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mb-6 animate-bounce">
-                      ✅
-                    </div>
-                    <h3 className="text-2xl font-bold text-slate-800 mb-2">Berhasil Diarsipkan!</h3>
-                    <p className="text-slate-500 mb-8">Dokumen Anda telah berhasil diproses dan disimpan ke dalam sistem.</p>
-                    <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 animate-progress"></div>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-widest">Mengalihkan ke daftar berkas...</p>
-                  </div>
-                ) : (
-                  <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200">
-                    <div className="flex items-center justify-between mb-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-2xl text-white shadow-lg shadow-blue-200">
-                          📤
-                        </div>
+              <div className="space-y-6">
+                <AnimatePresence mode="wait">
+                  {scannedData ? (
+                    <motion.div 
+                      key="result"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200"
+                    >
+                      <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-8 mx-auto shadow-sm shadow-emerald-100">
+                        <CheckCircle className="w-10 h-10" />
+                      </div>
+                      <h3 className="font-black text-slate-800 text-2xl text-center mb-2">Terdeteksi!</h3>
+                      <p className="text-slate-400 text-sm text-center mb-8">Metadata arsip berhasil dibaca sistem.</p>
+                      
+                      <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-8">
                         <div>
-                          <h3 className="font-bold text-xl text-slate-800">Arsipkan Berkas Baru</h3>
-                          <p className="text-slate-500 text-sm">Lengkapi metadata berkas untuk pemrosesan otomatis.</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Nomor Berkas</p>
+                          <p className="font-black text-slate-800 text-lg leading-tight">{scannedData.fileNumber || scannedData.fn || 'Tidak Diketahui'}</p>
                         </div>
+                        <div className="pt-4 border-t border-slate-200/50">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Nama Arsip</p>
+                          <p className="text-sm font-bold text-slate-600 leading-tight">{scannedData.name || 'N/A'}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col gap-3">
+                        <button 
+                          onClick={() => {
+                            const target = documents.find(d => d.id === scannedData.id || d.fileNumber === (scannedData.fileNumber || scannedData.fn));
+                            if (target) {
+                              setSelectedDocForDetail(target);
+                              setActiveTab('archive-list');
+                            } else {
+                              alert('Maaf, arsip ini belum terdaftar di database utama.');
+                            }
+                          }}
+                          className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Eye className="w-4 h-4" /> Buka Detail Arsip
+                        </button>
+                        <button 
+                          onClick={() => setScannedData(null)}
+                          className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all"
+                        >
+                          Scan Ulang
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="placeholder"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="bg-white p-12 rounded-3xl shadow-sm border border-dashed border-slate-200 flex flex-col items-center justify-center text-center h-full min-h-[500px]"
+                    >
+                      <div className="w-24 h-24 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center mb-8">
+                        <ScanLine className="w-12 h-12" />
+                      </div>
+                      <h4 className="text-xl font-black text-slate-400 mb-2">Siap Memindai</h4>
+                      <p className="text-slate-400 text-sm max-w-xs leading-relaxed font-medium">Arahkan kamera ke label QR Code pada box atau map arsip untuk melihat detail digital secara instan.</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {/* Loans */}
+          {activeTab === 'loans' && (
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h3 className="font-bold text-slate-800 mb-4">Tracking Peminjaman Arsip</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Peminjam</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Tanggal Pinjam</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loans.map((loan) => (
+                      <tr key={loan.id} className="border-b">
+                        <td className="px-4 py-3 text-sm">{loan.borrowerName}</td>
+                        <td className="px-4 py-3 text-sm">{new Date(loan.loanDate).toLocaleDateString('id-ID')}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${
+                            loan.status === 'Dipinjam' ? 'bg-amber-100 text-amber-700' :
+                            loan.status === 'Dikembalikan' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {loan.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {loan.status === 'Dipinjam' && (
+                            <button
+                              onClick={() => returnLoan(loan.id)}
+                              className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold"
+                            >
+                              Kembalikan
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {loans.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                          Belum ada peminjaman
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Vault */}
+          {activeTab === 'vault' && (
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              {!showVault ? (
+                <div className="text-center py-12">
+                  <Lock className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-slate-800 mb-4">Vault Arsip Rahasia</h3>
+                  <input
+                    type="password"
+                    value={vaultPassword}
+                    onChange={(e) => setVaultPassword(e.target.value)}
+                    placeholder="Masukkan password vault"
+                    className="px-4 py-3 border border-slate-200 rounded-xl mb-4 w-full max-w-md"
+                  />
+                  <button
+                    onClick={accessVault}
+                    className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700"
+                  >
+                    Akses Vault
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Lock className="w-5 h-5 text-red-600" />
+                      Arsip Rahasia
+                    </h3>
+                    <button
+                      onClick={() => setShowVault(false)}
+                      className="text-sm text-slate-500 hover:text-slate-700"
+                    >
+                      Keluar dari Vault
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {documents.filter(d => d.securityClassification === 'Rahasia').map((doc) => (
+                      <div key={doc.id} className="p-4 border border-red-200 rounded-xl bg-red-50">
+                        <p className="font-bold text-slate-800">{doc.name}</p>
+                        <p className="text-sm text-slate-600">{doc.archiveDescription}</p>
+                        <span className="inline-block mt-2 px-2 py-1 bg-red-600 text-white text-xs rounded font-bold">
+                          RAHASIA
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Labels */}
+          {activeTab === 'labels' && (
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h3 className="font-bold text-slate-800 mb-4">Cetak Label Box Arsip</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <select
+                    value={selectedBox?.id || ''}
+                    onChange={(e) => {
+                      const box = boxes.find(b => b.id === e.target.value);
+                      setSelectedBox(box || null);
+                    }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl mb-4"
+                  >
+                    <option value="">Pilih Box</option>
+                    {boxes.map((box) => (
+                      <option key={box.id} value={box.id}>{box.boxNumber}</option>
+                    ))}
+                  </select>
+                  {selectedBox && (
+                    <button
+                      onClick={printLabel}
+                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700"
+                    >
+                      Print Label
+                    </button>
+                  )}
+                </div>
+                {selectedBox && (
+                  <div className="border-2 border-slate-900 p-4 w-full max-w-[300px]">
+                    <div className="flex items-center gap-3 mb-3">
+                      <QRCodeSVG
+                        value={JSON.stringify({
+                          boxId: selectedBox.id,
+                          boxNumber: selectedBox.boxNumber,
+                          location: selectedBox.location
+                        })}
+                        size={80}
+                      />
+                      <div>
+                        <p className="font-bold text-lg">{selectedBox.boxNumber}</p>
+                        <p className="text-xs text-slate-600">{selectedBox.location}</p>
                       </div>
                     </div>
-
-                    <form onSubmit={handleUpload} className="space-y-10">
-                      {/* Section 1: Identitas Arsip */}
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
-                          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">1</span>
-                          Identitas Arsip
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nomor Berkas</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="F-2024-XXX"
-                              value={newDoc.fileNumber}
-                              onChange={(e) => setNewDoc({...newDoc, fileNumber: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nomor Item Arsip</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="ITEM-01"
-                              value={newDoc.archiveItemNumber}
-                              onChange={(e) => setNewDoc({...newDoc, archiveItemNumber: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">No. Box</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="BOX-2024-XXX"
-                              value={newDoc.boxNumber}
-                              onChange={(e) => setNewDoc({...newDoc, boxNumber: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Kategori Arsip</label>
-                            <select 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              value={newDoc.archiveCategory}
-                              onChange={(e) => setNewDoc({...newDoc, archiveCategory: e.target.value as any})}
-                            >
-                              <option value="Vital">Vital</option>
-                              <option value="Aktif">Aktif</option>
-                              <option value="Inaktif">Inaktif</option>
-                              <option value="Statis">Statis</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Kode Klasifikasi Arsip</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="HK.01.01"
-                              value={newDoc.classificationCode}
-                              onChange={(e) => setNewDoc({...newDoc, classificationCode: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Bentuk Naskah</label>
-                            <select 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              value={newDoc.documentForm}
-                              onChange={(e) => setNewDoc({...newDoc, documentForm: e.target.value as any})}
-                            >
-                              <option value="Asli">Asli</option>
-                              <option value="Salinan">Salinan</option>
-                              <option value="Scan">Scan</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Section 2: Informasi Arsip */}
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
-                          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">2</span>
-                          Informasi Arsip
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nama Pegawai / Pemohon</label>
-                            <input 
-                              required
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="Nama Lengkap"
-                              value={newDoc.name}
-                              onChange={(e) => setNewDoc({...newDoc, name: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">NIP / Pemohon</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="NIP atau Identitas"
-                              value={newDoc.nipOrApplicant}
-                              onChange={(e) => setNewDoc({...newDoc, nipOrApplicant: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Jenis Arsip</label>
-                            <input 
-                              required
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="SK, Sertifikat, Permohonan, dll"
-                              value={newDoc.archiveType}
-                              onChange={(e) => setNewDoc({...newDoc, archiveType: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Keterangan Arsip</label>
-                            <input 
-                              required
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="Penjelasan isi arsip"
-                              value={newDoc.archiveDescription}
-                              onChange={(e) => setNewDoc({...newDoc, archiveDescription: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Nomor Dokumen</label>
-                            <input 
-                              required
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="No. Surat / Sertifikat"
-                              value={newDoc.documentNumber}
-                              onChange={(e) => setNewDoc({...newDoc, documentNumber: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Tanggal Dokumen</label>
-                            <input 
-                              required
-                              type="date" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              value={newDoc.documentDate}
-                              onChange={(e) => setNewDoc({...newDoc, documentDate: e.target.value})}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Section 3: Status Arsip */}
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
-                          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">3</span>
-                          Status Arsip
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Tingkat Perkembangan</label>
-                            <select 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              value={newDoc.developmentLevel}
-                              onChange={(e) => setNewDoc({...newDoc, developmentLevel: e.target.value as any})}
-                            >
-                              <option value="Asli">Asli</option>
-                              <option value="Copy">Copy</option>
-                              <option value="Draft">Draft</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Ket. Klasifikasi Keamanan</label>
-                            <select 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              value={newDoc.securityClassification}
-                              onChange={(e) => setNewDoc({...newDoc, securityClassification: e.target.value as any})}
-                            >
-                              <option value="Terbuka">Terbuka</option>
-                              <option value="Terbatas">Terbatas</option>
-                              <option value="Rahasia">Rahasia</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Section 4: Lokasi Penyimpanan */}
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
-                          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">4</span>
-                          Lokasi Penyimpanan
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Gedung</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="Gedung A"
-                              value={newDoc.building}
-                              onChange={(e) => setNewDoc({...newDoc, building: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Lantai</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="1"
-                              value={newDoc.floor}
-                              onChange={(e) => setNewDoc({...newDoc, floor: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Lemari</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="C-01"
-                              value={newDoc.cabinet}
-                              onChange={(e) => setNewDoc({...newDoc, cabinet: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Rak / Shelf</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="Rak 1"
-                              value={newDoc.shelf}
-                              onChange={(e) => setNewDoc({...newDoc, shelf: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Map / Folder</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="Map 01"
-                              value={newDoc.mapOrFolder}
-                              onChange={(e) => setNewDoc({...newDoc, mapOrFolder: e.target.value})}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Section 5: Field Tambahan */}
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
-                          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">5</span>
-                          Field Tambahan
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Tahun Arsip</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="2024"
-                              value={newDoc.archiveYear}
-                              onChange={(e) => setNewDoc({...newDoc, archiveYear: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Unit Pengolah</label>
-                            <select 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              value={newDoc.processingUnit}
-                              onChange={(e) => setNewDoc({...newDoc, processingUnit: e.target.value})}
-                            >
-                              <option value="">Pilih Unit Pengolah</option>
-                              {DJKI_UNITS.map(unit => (
-                                <option key={unit} value={unit}>{unit}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Retensi Arsip</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all"
-                              placeholder="Masa Simpan"
-                              value={newDoc.retentionPeriod}
-                              onChange={(e) => setNewDoc({...newDoc, retentionPeriod: e.target.value})}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Keterangan Tambahan</label>
-                            <textarea 
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all resize-none"
-                              placeholder="Catatan tambahan"
-                              rows={2}
-                              value={newDoc.additionalNotes}
-                              onChange={(e) => setNewDoc({...newDoc, additionalNotes: e.target.value})}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="relative group">
-                        <input 
-                          type="file" 
-                          id="file-upload"
-                          className="hidden" 
-                          onChange={handleFileChange}
-                          accept=".pdf,.doc,.docx,.jpg,.png"
-                        />
-                        <label 
-                          htmlFor="file-upload"
-                          className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-3xl cursor-pointer transition-all ${
-                            selectedFile 
-                              ? 'bg-blue-50 border-blue-300' 
-                              : 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl mb-3 transition-transform group-hover:scale-110 ${
-                            selectedFile ? 'bg-blue-100 text-blue-600' : 'bg-white text-slate-400 shadow-sm'
-                          }`}>
-                            {selectedFile ? '📄' : '☁️'}
-                          </div>
-                          <p className="text-sm font-bold text-slate-700">
-                            {selectedFile ? selectedFile.name : 'Unggah Dokumen Pendukung'}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {selectedFile 
-                              ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB • Klik untuk ganti` 
-                              : 'Tarik berkas PDF/Gambar di sini atau klik untuk memilih'}
-                          </p>
-                        </label>
-                        {selectedFile && (
-                          <button 
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSelectedFile(null);
-                            }}
-                            className="absolute top-4 right-4 p-1.5 bg-white border border-slate-200 rounded-full text-slate-400 hover:text-red-500 transition-colors shadow-sm"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="pt-4">
-                        <button 
-                          type="submit" 
-                          disabled={isUploading}
-                          className={`w-full py-4 rounded-2xl text-white font-bold flex items-center justify-center gap-3 transition-all relative overflow-hidden ${
-                            isUploading 
-                              ? 'bg-slate-400 cursor-not-allowed' 
-                              : 'bg-slate-900 hover:bg-slate-800 shadow-xl shadow-slate-200'
-                          }`}
-                        >
-                          {isUploading ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              <span className="animate-pulse">Menyimpan Dokumen...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-xl">✨</span>
-                              <span>Simpan & Proses Arsip</span>
-                            </>
-                          )}
-                        </button>
-                        <p className="text-center text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-widest">
-                          Data akan dienkripsi dan diproses secara aman
-                        </p>
-                      </div>
-                    </form>
+                    <p className="text-xs text-slate-500">{selectedBox.processingUnit}</p>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === 'labels' && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                      <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span className="text-xl">🏷️</span> Konfigurasi Label Box
-                      </h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Pilih Box Arsip</label>
-                          <select 
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                            onChange={(e) => {
-                              const box = boxes.find(b => b.id === e.target.value);
-                              if (box) setSelectedBox(box);
-                              else setSelectedBox(null);
-                            }}
-                          >
-                            <option value="">Pilih Box...</option>
-                            {boxes.map(box => (
-                              <option key={box.id} value={box.id}>{box.boxNumber} - {box.location}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {selectedBox && (
-                          <div className="space-y-4 animate-in fade-in duration-300">
-                            <div>
-                              <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Unit Pengolah</label>
-                              <select 
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                value={selectedBox.processingUnit || ''}
-                                onChange={(e) => setSelectedBox({...selectedBox, processingUnit: e.target.value})}
-                              >
-                                <option value="">Pilih Unit...</option>
-                                {DJKI_UNITS.map(unit => (
-                                  <option key={unit} value={unit}>{unit}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Range Tahun</label>
-                              <input 
-                                type="text"
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                placeholder="Contoh: 2020 - 2024"
-                                value={selectedBox.yearRange || ''}
-                                onChange={(e) => setSelectedBox({...selectedBox, yearRange: e.target.value})}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Lokasi</label>
-                              <input 
-                                type="text"
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                value={selectedBox.location || ''}
-                                onChange={(e) => setSelectedBox({...selectedBox, location: e.target.value})}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        <button 
-                          disabled={!selectedBox}
-                          onClick={() => window.print()}
-                          className="w-full py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
-                        >
-                          <Printer className="w-4 h-4" />
-                          Cetak Label Box
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                      <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span className="text-xl">💡</span> Petunjuk
-                      </h3>
-                      <ul className="space-y-3">
-                        {[
-                          'Pilih nomor box dari dropdown di atas.',
-                          'Sesuaikan metadata box jika diperlukan.',
-                          'Sistem akan otomatis meng-generate QR Code.',
-                          'Gunakan printer label standar untuk hasil terbaik.'
-                        ].map((text, i) => (
-                          <li key={i} className="flex gap-3 text-xs text-slate-500">
-                            <span className="text-blue-500 font-bold">{i+1}.</span>
-                            {text}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+            {/* Reports */}
+          {activeTab === 'reports' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl shadow-sm p-8 border border-slate-200">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800">Laporan Digital DJKI</h3>
+                    <p className="text-sm text-slate-500">Monitor aktivitas arsip per periode</p>
                   </div>
-
-                  <div className="lg:col-span-2">
-                    {selectedBox ? (
-                      <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center justify-center min-h-[500px] print:shadow-none print:border-none print:p-0">
-                        <div id="printable-label" className="w-full max-w-[75mm] h-[38mm] border-2 border-slate-900 p-2 rounded-none flex flex-row items-center gap-3 bg-white overflow-hidden print:border-slate-900">
-                          {/* Left Side: QR Code */}
-                          <div className="flex-shrink-0 bg-white p-1 border border-slate-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                            <QRCodeSVG 
-                              value={JSON.stringify({
-                                boxId: selectedBox.id,
-                                boxNumber: selectedBox.boxNumber,
-                                location: selectedBox.location,
-                                processingUnit: selectedBox.processingUnit,
-                                yearRange: selectedBox.yearRange,
-                                titles: documents.filter(d => selectedBox.documentIds.includes(d.id)).map(d => d.archiveDescription)
-                              })} 
-                              size={100}
-                              level="H"
-                            />
-                          </div>
-                          
-                          {/* Right Side: Information */}
-                          <div className="flex-1 flex flex-col justify-between h-full text-left overflow-hidden">
-                            <div className="flex items-center gap-2 mb-1">
-                              <img 
-                                src="https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95" 
-                                alt="DJKI" 
-                                className="w-6 h-6 object-contain"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="leading-none">
-                                <h2 className="text-[10px] font-black text-slate-900">DJKI</h2>
-                                <p className="text-[6px] font-bold text-slate-500 uppercase tracking-tighter">Arsip Digital KI</p>
-                              </div>
-                            </div>
-                            
-                            <div className="border-t border-slate-900 pt-1">
-                              <h1 className="text-xl font-black text-slate-900 leading-none truncate tracking-tighter">{selectedBox.boxNumber}</h1>
-                              <p className="text-[6px] font-bold text-slate-400 uppercase tracking-[0.2em]">Label Box Arsip</p>
-                            </div>
-                            
-                            <div className="mt-1 space-y-0.5">
-                              <div className="flex flex-col">
-                                <span className="text-[5px] font-black text-slate-400 uppercase">Unit Pengolah</span>
-                                <p className="text-[7px] font-bold text-slate-800 truncate leading-tight">{selectedBox.processingUnit || 'N/A'}</p>
-                              </div>
-                              <div className="grid grid-cols-2 gap-1">
-                                <div>
-                                  <span className="text-[5px] font-black text-slate-400 uppercase">Lokasi</span>
-                                  <p className="text-[7px] font-bold text-slate-800 truncate leading-tight">{selectedBox.location}</p>
-                                </div>
-                                <div>
-                                  <span className="text-[5px] font-black text-slate-400 uppercase">Tahun</span>
-                                  <p className="text-[7px] font-bold text-slate-800 truncate leading-tight">{selectedBox.yearRange || 'N/A'}</p>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="mt-auto pt-1 border-t border-slate-100 flex justify-between items-end">
-                              <span className="text-[5px] text-slate-300 font-mono uppercase">
-                                {new Date().toLocaleDateString()}
-                              </span>
-                              <span className="text-[4px] text-slate-200 font-mono">T&J 121</span>
-                            </div>
-                          </div>
-                        </div>
-                        <p className="mt-8 text-slate-400 text-xs italic print:hidden">Pratinjau label Tom & Jerry No. 121 (38x75mm)</p>
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center min-h-[500px] text-slate-400">
-                        <div className="text-6xl mb-4">🏷️</div>
-                        <p className="font-medium">Pilih box untuk melihat pratinjau label</p>
-                        <p className="text-xs mt-2">Gunakan menu dropdown di sebelah kiri</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'scanner' && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 overflow-hidden relative">
-                      <div className="absolute top-0 left-0 w-full h-1 bg-blue-600"></div>
-                      <h3 className="font-bold text-xl text-slate-800 mb-6 flex items-center gap-3">
-                        <span className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">📷</span>
-                        Scanner Label Box
-                      </h3>
-                      
-                      <div id="reader" className="overflow-hidden rounded-2xl border-2 border-slate-100 bg-slate-50 aspect-square flex items-center justify-center">
-                        <div className="text-center p-8">
-                          <p className="text-slate-400 text-sm">Menginisialisasi kamera...</p>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-6 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
-                        <span className="text-xl">💡</span>
-                        <p className="text-xs text-amber-800 leading-relaxed">
-                          Posisikan QR Code di tengah kotak scanner. Pastikan pencahayaan cukup untuk hasil scan yang akurat.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    {scannedBoxData ? (
-                      <div className="bg-white p-8 rounded-3xl shadow-xl border border-blue-100 animate-in zoom-in-95 duration-300">
-                        <div className="flex items-center justify-between mb-6">
-                           <div className="flex items-center gap-4">
-                              <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl">
-                                📦
-                              </div>
-                              <div>
-                                <h3 className="font-black text-2xl text-slate-800">{scannedBoxData.boxNumber}</h3>
-                                <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Box Teridentifikasi</p>
-                              </div>
-                           </div>
-                           <button 
-                             onClick={() => setScannedBoxData(null)}
-                             className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
-                           >
-                             ✕
-                           </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">ID Sistem</p>
-                            <p className="text-sm font-mono font-bold text-slate-700">{scannedBoxData.boxId}</p>
-                          </div>
-                          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Lokasi Fisik</p>
-                            <p className="text-sm font-bold text-slate-700">{scannedBoxData.location || 'N/A'}</p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Isi Box ({scannedBoxData.titles.length} Dokumen)</p>
-                          <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                            {scannedBoxData.titles.map((title, i) => (
-                              <div key={i} className="p-3 bg-white border border-slate-100 rounded-xl flex items-center gap-3 group hover:border-blue-200 transition-colors">
-                                <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center text-[10px] font-bold group-hover:bg-blue-100 group-hover:text-blue-600">
-                                  {i + 1}
-                                </div>
-                                <p className="text-xs font-medium text-slate-600 truncate">{title}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="mt-8 flex gap-3">
-                          <button 
-                            onClick={() => {
-                              setSearchQuery(scannedBoxData.boxNumber);
-                              setActiveTab('archive-list');
-                            }}
-                            className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
-                          >
-                            Lihat Semua Isi
-                          </button>
-                          <button 
-                            onClick={() => setScannedBoxData(null)}
-                            className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-all"
-                          >
-                            Scan Ulang
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center min-h-[400px] text-slate-400">
-                        <div className="text-6xl mb-4">🔍</div>
-                        <p className="font-medium">Menunggu hasil scan...</p>
-                        <p className="text-xs mt-2">Arahkan kamera ke QR Code pada label box</p>
-                      </div>
-                    )}
-
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                          <span className="text-xl">📋</span> Riwayat Scan Terakhir
-                        </h3>
-                        {scanHistory.length > 0 && (
-                          <button 
-                            onClick={() => setScanHistory([])}
-                            className="text-[10px] font-bold text-red-500 hover:underline uppercase tracking-widest"
-                          >
-                            Hapus Semua
-                          </button>
-                        )}
-                      </div>
-                      <div className="space-y-3">
-                        {scanHistory.length > 0 ? (
-                          scanHistory.map((item, i) => (
-                            <div 
-                              key={i} 
-                              className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:bg-white hover:border-blue-200 transition-all cursor-pointer group"
-                              onClick={() => setScannedBoxData(item)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-sm shadow-sm group-hover:bg-blue-50 group-hover:border-blue-100">
-                                  📦
-                                </div>
-                                <div>
-                                  <p className="text-xs font-bold text-slate-800">{item.boxNumber}</p>
-                                  <p className="text-[10px] text-slate-400">{new Date(item.timestamp).toLocaleString()}</p>
-                                </div>
-                              </div>
-                              <span className="text-slate-300 group-hover:text-blue-500 transition-colors">→</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="flex items-center justify-center py-8 text-slate-400 text-xs italic">
-                            Belum ada riwayat scan pada sesi ini.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'categories' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[
-                    { name: 'Sertifikat', count: filteredDocs.filter(d => d.archiveType === 'Sertifikat').length, icon: '📜', color: 'bg-emerald-500', desc: 'Dokumen bukti pendaftaran resmi yang telah disetujui.' },
-                    { name: 'Kutipan', count: filteredDocs.filter(d => d.archiveType === 'Kutipan').length, icon: '📄', color: 'bg-blue-500', desc: 'Salinan resmi dari buku daftar umum kekayaan intelektual.' },
-                    { name: 'Permohonan', count: filteredDocs.filter(d => d.archiveType === 'Permohonan').length, icon: '📝', color: 'bg-indigo-500', desc: 'Berkas pendaftaran yang sedang dalam tahap pemeriksaan.' },
-                    { name: 'Sanggahan', count: filteredDocs.filter(d => d.archiveType === 'Sanggahan').length, icon: '⚖️', color: 'bg-amber-500', desc: 'Dokumen tanggapan atas usulan penolakan dari pemeriksa.' },
-                    { name: 'Tolakan', count: filteredDocs.filter(d => d.archiveType === 'Tolakan').length, icon: '🚫', color: 'bg-red-500', desc: 'Surat pemberitahuan penolakan resmi dari DJKI.' },
-                    { name: 'Lainnya', count: filteredDocs.filter(d => d.archiveType === 'Lainnya').length, icon: '📁', color: 'bg-slate-500', desc: 'Dokumen pendukung lainnya yang tidak termasuk kategori utama.' },
-                  ].map((cat, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`w-12 h-12 ${cat.color} text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg`}>
-                          {cat.icon}
-                        </div>
-                        <span className="text-2xl font-black text-slate-200">{cat.count}</span>
-                      </div>
-                      <h4 className="font-bold text-slate-800 text-lg mb-1">{cat.name}</h4>
-                      <p className="text-slate-500 text-xs leading-relaxed">{cat.desc}</p>
-                      <button className="mt-4 text-blue-600 text-xs font-bold hover:underline flex items-center gap-1">
-                        Kelola Arsip <span className="text-[10px]">→</span>
+                  <div className="flex bg-slate-100 p-1 rounded-xl">
+                    {['Harian', 'Mingguan', 'Bulanan', 'Semua'].map(period => (
+                      <button 
+                        key={period}
+                        className={`px-4 py-2 text-xs font-black rounded-lg transition-all ${
+                          reportPeriod === period 
+                            ? 'bg-white text-blue-600 shadow-sm' 
+                            : 'text-slate-500 hover:text-blue-600'
+                        }`}
+                        onClick={() => setReportPeriod(period)}
+                      >
+                        {period}
                       </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl text-white">
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-2">Arsip Diunggah</p>
+                    <p className="text-4xl font-black">{documents.length}</p>
+                    <div className="mt-4 pt-4 border-t border-white/20 flex items-center gap-2 text-xs">
+                      <span className="bg-white/20 px-2 py-0.5 rounded font-black">+12%</span>
+                      <span className="opacity-60 text-[10px]">Dari bulan lalu</span>
+                    </div>
+                  </div>
+                  <div className="p-6 bg-white border border-slate-200 rounded-2xl">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">Nota Dinas Terbit</p>
+                    <p className="text-3xl font-black text-slate-800">42</p>
+                    <div className="mt-4 text-emerald-500 text-xs font-bold flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> Proses Selesai
+                    </div>
+                  </div>
+                  <div className="p-6 bg-white border border-slate-200 rounded-2xl">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-2">User Aktif</p>
+                    <p className="text-3xl font-black text-slate-800">{users.length}</p>
+                    <div className="mt-4 flex -space-x-2">
+                       {users.map(u => <img key={u.id} src={u.avatar} className="w-6 h-6 rounded-full border-2 border-white" alt="" />)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                  <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    Aktivitas Terbaru
+                  </h4>
+                  <div className="space-y-4">
+                    {documents.slice(0, 3).map(doc => (
+                      <div key={doc.id} className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-100">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                            <Plus className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">Arsip Baru Diunggah</p>
+                            <p className="text-[10px] text-slate-400 font-medium">No: {doc.fileNumber} • Oleh: {doc.uploadedBy || 'System'}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase">{doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString() : '-'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-slate-100 flex flex-col md:flex-row gap-4">
+                  <button
+                    onClick={exportToExcel}
+                    className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" /> Export Laporan Lengkap (.xlsx)
+                  </button>
+                  <button className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
+                    <Printer className="w-4 h-4" /> Cetak Laporan PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Units */}
+          {activeTab === 'units' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-bold text-slate-800">Daftar Unit Kerja DJKI</h3>
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Unit Baru</button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {DJKI_UNITS.map((unit) => (
+                    <div key={unit} className="p-6 rounded-2xl border border-slate-100 bg-slate-50 hover:border-blue-200 transition-all group">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
+                          <Building2 className="w-5 h-5" />
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-sm leading-tight">{unit}</h4>
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <p className="text-2xl font-black text-blue-600">
+                          {documents.filter(d => d.processingUnit === unit).length}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Arsip</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === 'reports' && (
-              <div className="space-y-8">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-2xl font-black text-slate-800">Laporan Strategis</h3>
-                    <p className="text-slate-500 text-sm">Analisis data dan ringkasan operasional vault.</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowNotaDinas(true)}
-                    className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2 shadow-xl shadow-slate-200"
-                  >
-                    <FileText className="w-4 h-4" /> Cetak Nota Dinas
-                  </button>
-                </div>
-
-                {showNotaDinas && (
-                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
-                    <div className="bg-white w-full max-w-4xl min-h-[1000px] p-12 shadow-2xl relative my-8 font-serif text-black nota-dinas-print">
-                      <button 
-                        onClick={() => setShowNotaDinas(false)}
-                        className="absolute top-8 right-8 p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 font-sans print:hidden"
-                      >
-                        ✕
-                      </button>
-
-                      {/* Letterhead */}
-                      <div className="flex items-center border-b-4 border-black pb-4 mb-8">
-                        <img 
-                          src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/06/Logo_Kemenkumham_RI.svg/1200px-Logo_Kemenkumham_RI.svg.png" 
-                          alt="Logo Pengayoman" 
-                          className="w-24 h-24 object-contain mr-6"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="text-center flex-1">
-                          <h2 className="text-xl font-bold uppercase leading-tight">Kementerian Hukum dan Hak Asasi Manusia RI</h2>
-                          <h1 className="text-2xl font-black uppercase leading-tight">Direktorat Jenderal Kekayaan Intelektual</h1>
-                          <p className="text-sm font-medium mt-1">Jalan H.R. Rasuna Said Kav. 8-9, Jakarta Selatan 12940</p>
-                          <p className="text-xs">Telepon: (021) 57905611, Faksimile: (021) 57905611 Laman: www.dgip.go.id</p>
-                        </div>
-                      </div>
-
-                      {/* Nota Dinas Header */}
-                      <div className="text-center mb-8">
-                        <h3 className="text-xl font-bold underline uppercase">Nota Dinas</h3>
-                        <p className="text-sm">Nomor: W.11.UM.01.01-{new Date().getFullYear()}-0842</p>
-                      </div>
-
-                      {/* Memo Fields */}
-                      <div className="space-y-2 mb-8 text-sm md:text-base">
-                        <div className="grid grid-cols-[100px_10px_1fr]">
-                          <span className="font-bold">Yth.</span>
-                          <span>:</span>
-                          <span>Direktur Teknologi Informasi Kekayaan Intelektual</span>
-                        </div>
-                        <div className="grid grid-cols-[100px_10px_1fr]">
-                          <span className="font-bold">Dari</span>
-                          <span>:</span>
-                          <span>Kepala Bagian Umum dan Kepegawaian</span>
-                        </div>
-                        <div className="grid grid-cols-[100px_10px_1fr]">
-                          <span className="font-bold">Hal</span>
-                          <span>:</span>
-                          <span>Laporan Bulanan Manajemen Arsip Digital DJKI Vault</span>
-                        </div>
-                        <div className="grid grid-cols-[100px_10px_1fr]">
-                          <span className="font-bold">Tanggal</span>
-                          <span>:</span>
-                          <span>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                        </div>
-                      </div>
-
-                      <hr className="border-black mb-8" />
-
-                      {/* Content */}
-                      <div className="space-y-6 text-justify leading-relaxed">
-                        <p>1. Sehubungan dengan pelaksanaan digitalisasi arsip di lingkungan Direktorat Jenderal Kekayaan Intelektual, bersama ini kami sampaikan laporan ringkasan operasional sistem DJKI Vault untuk periode berjalan.</p>
-                        
-                        <p>2. Berdasarkan data yang tercatat dalam sistem, berikut adalah ringkasan statistik arsip:</p>
-                        
-                        <div className="pl-8 space-y-2">
-                          <p>- Total Berkas Terarsip: <span className="font-bold">{documents.length} Dokumen</span></p>
-                          <p>- Distribusi Keamanan: {Array.from(new Set(documents.map(d => d.securityClassification))).join(', ')}</p>
-                          <p>- Unit Pengolah Aktif: {DJKI_UNITS.length} Direktorat</p>
-                          <p>- Efisiensi Penyimpanan: 85% (Optimal)</p>
-                        </div>
-
-                        <p>3. Sistem saat ini berjalan dengan tingkat ketersediaan (uptime) sebesar 99.9% dan seluruh data telah terenkripsi menggunakan standar AES-256 untuk menjamin keamanan informasi kekayaan intelektual nasional.</p>
-
-                        <p>4. Demikian laporan ini kami sampaikan untuk menjadi maklum dan bahan pertimbangan lebih lanjut. Atas perhatian dan kerja samanya, diucapkan terima kasih.</p>
-                      </div>
-
-                      {/* Signature */}
-                      <div className="mt-20 flex justify-end">
-                        <div className="text-center w-64">
-                          <p className="font-bold">Kepala Bagian Umum,</p>
-                          <div className="h-24"></div>
-                          <p className="font-bold underline">Budi Santoso, S.H., M.H.</p>
-                          <p>NIP. 19750812 200003 1 001</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-20 flex justify-center gap-4 print:hidden">
-                        <button 
-                          onClick={() => window.print()}
-                          className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center gap-2"
-                        >
-                          <Printer className="w-4 h-4" /> Cetak Sekarang
-                        </button>
-                        <button 
-                          onClick={() => setShowNotaDinas(false)}
-                          className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold"
-                        >
-                          Tutup
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                      <span>📈</span> Tren Pertumbuhan Arsip (6 Bulan Terakhir)
-                    </h3>
-                    <div className="h-80 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={[
-                          { name: 'Sep', count: 45 },
-                          { name: 'Okt', count: 52 },
-                          { name: 'Nov', count: 38 },
-                          { name: 'Des', count: 65 },
-                          { name: 'Jan', count: 48 },
-                          { name: 'Feb', count: filteredDocs.length + 10 },
-                        ]}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                          <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                          />
-                          <Bar dataKey="count" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={40} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                      <span>🍰</span> Distribusi Kategori Arsip
-                    </h3>
-                    <div className="h-80 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: 'Sertifikat', value: filteredDocs.filter(d => d.archiveType === 'Sertifikat').length },
-                              { name: 'Kutipan', value: filteredDocs.filter(d => d.archiveType === 'Kutipan').length },
-                              { name: 'Permohonan', value: filteredDocs.filter(d => d.archiveType === 'Permohonan').length },
-                              { name: 'Sanggahan', value: filteredDocs.filter(d => d.archiveType === 'Sanggahan').length },
-                              { name: 'Tolakan', value: filteredDocs.filter(d => d.archiveType === 'Tolakan').length },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {['#10b981', '#3b82f6', '#6366f1', '#f59e0b', '#ef4444'].map((color, index) => (
-                              <Cell key={`cell-${index}`} fill={color} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                          <Legend verticalAlign="bottom" height={36}/>
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-slate-800">Ringkasan Kinerja Sistem</h3>
-                    <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">Uptime 99.9%</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-                    <div className="space-y-2">
-                      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Waktu Proses Rata-rata</p>
-                      <p className="text-2xl md:text-3xl font-black text-slate-800">0.2s <span className="text-xs text-emerald-500 font-bold">Optimal</span></p>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Dokumen Terarsip</p>
-                      <p className="text-2xl md:text-3xl font-black text-slate-800">1,284 <span className="text-xs text-blue-500 font-bold">↑ 12%</span></p>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Efisiensi Ruang</p>
-                      <p className="text-2xl md:text-3xl font-black text-slate-800">85% <span className="text-xs text-emerald-500 font-bold">Tinggi</span></p>
-                    </div>
-                  </div>
-                </div>
+          {/* Categories */}
+          {activeTab === 'categories' && (
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-slate-800">Master Kategori Arsip</h3>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Kategori Baru</button>
               </div>
-            )}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {['Aktif', 'Inaktif', 'Statis', 'Vital'].map(cat => (
+                  <div key={cat} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                    <FolderOpen className="w-8 h-8 text-blue-600 mx-auto mb-3" />
+                    <p className="font-black text-slate-800">{cat}</p>
+                    <p className="text-xs text-slate-500 mt-1">{documents.filter(d => d.archiveCategory === cat).length} Berkas</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-            {activeTab === 'settings' && (
-              <div className="max-w-6xl mx-auto space-y-8">
-                {/* User Management Section */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+          {/* Classifications */}
+          {activeTab === 'classifications' && (
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-slate-800">Master Klasifikasi Keamanan</h3>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Klasifikasi Baru</button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {['Terbuka', 'Terbatas', 'Rahasia'].map(cls => (
+                  <div key={cls} className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    <ShieldCheck className="w-8 h-8 text-blue-600 mb-3" />
+                    <p className="font-black text-slate-800">{cls}</p>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">Pengaturan akses level {cls}</p>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${cls === 'Rahasia' ? 'bg-red-500' : cls === 'Terbatas' ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                        style={{ width: `${(documents.filter(d => d.securityClassification === cls).length / documents.length) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Access Control */}
+          {activeTab === 'access' && (
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+              <h3 className="font-bold text-slate-800 mb-6">Pengaturan Hak Akses Halaman</h3>
+              <div className="space-y-4">
+                {['SUPERADMIN', 'UNIT_ADMIN', 'VIEWER'].map(role => (
+                  <div key={role} className="p-4 bg-slate-50 rounded-xl flex items-center justify-between border border-slate-100">
                     <div>
-                      <h3 className="font-black text-2xl text-slate-800 tracking-tight">Manajemen Pengguna</h3>
-                      <p className="text-slate-500 text-sm">Kelola akses administrator dan unit pengolah.</p>
+                      <p className="font-bold text-slate-800">{role}</p>
+                      <p className="text-xs text-slate-500">Izin akses untuk peran personil {role}</p>
                     </div>
-                    <button 
-                      onClick={() => {
-                        const name = prompt('Nama Lengkap:');
-                        const username = prompt('Username:');
-                        const role = prompt('Role (SUPERADMIN/UNIT_ADMIN):') as Role;
-                        if (name && username && role) {
-                          handleAddUser({
-                            id: Date.now().toString(),
-                            name,
-                            username,
-                            role,
-                            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
-                          });
-                        }
-                      }}
-                      className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200"
-                    >
-                      <Plus className="w-4 h-4" /> Tambah User
-                    </button>
+                    <button className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold">Atur Izin</button>
                   </div>
-                  
-                  <div className="p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {users.map(user => (
-                        <div key={user.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col items-center text-center relative group">
-                          <button 
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                          <img src={user.avatar} alt={user.name} className="w-20 h-20 rounded-2xl mb-4 bg-white p-1 shadow-sm" />
-                          <h4 className="font-bold text-slate-800">{user.name}</h4>
-                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">{user.role}</p>
-                          <p className="text-xs text-slate-500 mt-2 line-clamp-1">{user.processingUnit || 'Akses Global'}</p>
-                          <div className="mt-4 pt-4 border-t border-slate-200 w-full flex justify-center gap-4">
-                            <div className="text-center">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase">Status</p>
-                              <p className="text-xs font-bold text-emerald-600">Aktif</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase">Akses</p>
-                              <p className="text-xs font-bold text-slate-700">{user.role === 'SUPERADMIN' ? 'Full' : 'Unit'}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* System Configuration Section */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-                    <h3 className="font-black text-2xl text-slate-800 tracking-tight">Konfigurasi Vault</h3>
-                    <p className="text-slate-500 text-sm">Pengaturan keamanan dan alur kerja sistem.</p>
-                  </div>
-                  
-                  <div className="p-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl">🛡️</div>
-                          <div>
-                            <p className="font-bold text-slate-800">Enkripsi Metadata</p>
-                            <p className="text-xs text-slate-500">Amankan data arsip dengan enkripsi AES-256.</p>
-                          </div>
-                        </div>
-                        <div className="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
-                          <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                        </div>
-                      </div>
-
-                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">👁️</div>
-                          <div>
-                            <p className="font-bold text-slate-800">Audit Log</p>
-                            <p className="text-xs text-slate-500">Catat setiap aktivitas akses dan perubahan.</p>
-                          </div>
-                        </div>
-                        <div className="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
-                          <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-6 flex justify-end gap-3">
-                      <button className="px-8 py-4 text-slate-600 font-bold text-sm hover:bg-slate-50 rounded-2xl transition-colors">Reset Default</button>
-                      <button className="px-8 py-4 bg-[#0f172a] text-white font-black text-sm rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-200">Simpan Konfigurasi</button>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+            </div>
+          )}
+
+          {/* Users Management */}
+          {activeTab === 'users' && (
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-slate-800">Manajemen Pengguna</h3>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ User Baru</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">User</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Role</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Unit</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map(u => (
+                      <tr key={u.id} className="border-b hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <img src={u.avatar} alt="" className="w-8 h-8 rounded-lg" />
+                            <div>
+                              <p className="text-sm font-bold">{u.name}</p>
+                              <p className="text-[10px] text-slate-400">@{u.username}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-black rounded uppercase">
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{u.processingUnit || 'Semua Unit'}</td>
+                        <td className="px-4 py-3">
+                          <button className="p-2 text-slate-400 hover:text-blue-600"><Edit className="w-4 h-4" /></button>
+                          <button className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
+
+      {/* Archive Form Modal */}
+      {showForm && (
+        <ArchiveForm
+          archive={selectedDocForEdit}
+          onSave={saveArchive}
+          onClose={() => {
+            setShowForm(false);
+            setSelectedDocForEdit(null);
+          }}
+        />
+      )}
     </div>
   );
 };
+
+// Helper Components
+const StatCard: React.FC<{
+  title: string;
+  value: number;
+  icon: React.ComponentType<any>;
+  color: string;
+}> = ({ title, value, icon: Icon, color }) => (
+  <div className="bg-white p-6 rounded-2xl shadow-sm">
+    <div className="flex items-center justify-between mb-4">
+      <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center`}>
+        <Icon className="w-6 h-6 text-white" />
+      </div>
+      <span className="text-3xl font-black text-slate-800">{value}</span>
+    </div>
+    <p className="text-sm text-slate-500">{title}</p>
+  </div>
+);
+
+const ReportCard: React.FC<{
+  title: string;
+  value: number;
+}> = ({ title, value }) => (
+  <div className="bg-slate-50 p-4 rounded-xl">
+    <p className="text-xs text-slate-500 mb-1">{title}</p>
+    <p className="text-2xl font-black text-slate-800">{value}</p>
+  </div>
+);
 
 export default App;
