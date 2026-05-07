@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { GoogleGenAI } from "@google/genai";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line
@@ -49,6 +50,7 @@ export interface Archive {
   uploadedBy?: string;
   uploadDate?: string;
   fileUrl?: string;
+  ocrText?: string;
 }
 
 export interface ArchiveBox {
@@ -75,6 +77,7 @@ export interface LoanRecord {
   archiveId: string;
   borrowerName: string;
   borrowerNip: string;
+  borrowerUnit: string;
   loanDate: string;
   returnDate?: string;
   status: 'Dipinjam' | 'Dikembalikan' | 'Overdue';
@@ -92,6 +95,27 @@ const DJKI_UNITS = [
   'Direktorat Kerja Sama dan Pemberdayaan KI',
   'Direktorat Teknologi Informasi KI',
   'Direktorat Penyidikan dan Penyelesaian Sengketa'
+];
+
+const INITIAL_BOXES: ArchiveBox[] = [
+  {
+    id: 'box-1',
+    boxNumber: 'BOX-2024-001',
+    location: 'Gedung A, Lantai 1, Lemari C-01, Rak S-01',
+    documentIds: ['1', '2'],
+    processingUnit: 'Direktorat Merek dan Indikasi Geografis',
+    yearRange: '2023-2024',
+    createdAt: '2024-01-01T00:00:00Z'
+  },
+  {
+    id: 'box-2',
+    boxNumber: 'BOX-2024-002',
+    location: 'Gedung B, Lantai 2, Lemari C-05, Rak S-02',
+    documentIds: ['3'],
+    processingUnit: 'Sekretariat Direktorat Jenderal',
+    yearRange: '2024',
+    createdAt: '2024-02-01T00:00:00Z'
+  }
 ];
 
 const EMPTY_ARCHIVE: Archive = {
@@ -118,7 +142,150 @@ const EMPTY_ARCHIVE: Archive = {
   processingUnit: "",
   retentionPeriod: "",
   additionalNotes: "",
+  ocrText: "",
 };
+
+export interface ClassificationCode {
+  mainCode: string;
+  subCode: string;
+  archiveType: string;
+  description: string;
+  category: string;
+}
+
+const CLASSIFICATION_CODES: ClassificationCode[] = [
+  // --- FASILITATIF ---
+  { mainCode: "PR", subCode: "01.01", archiveType: "Rencana Strategis (Renstra)", description: "Visi, misi, tujuan, sasaran, strategi, kebijakan, program dan kegiatan instansi untuk jangka lima tahun.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "01.02", archiveType: "Trilateral Meeting", description: "Penyelarasan rencana kerja dan anggaran antara Kementerian Keuangan, Bappenas dan Kementerian/Lembaga.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "01.03", archiveType: "Rencana Kerja (Renja)", description: "Dokumen perencanaan tahunan instansi pemerintah.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "01.04", archiveType: "RKA-K/L", description: "Rencana Kerja dan Anggaran Kementerian Negara/Lembaga (Pagu Indikatif, Pagu Anggaran, Pagu Alokasi).", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "02.01", archiveType: "Evaluasi Unit Utama", description: "Laporan hasil evaluasi kinerja pada unit eselon I secara berkala.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "02.02", archiveType: "Evaluasi Kantor Wilayah", description: "Laporan hasil evaluasi kinerja pada kantor wilayah dan unit pelaksana teknis.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "03", archiveType: "LAKIP", description: "Laporan Akuntabilitas Kinerja Instansi Pemerintah (LAKIP/LKjIP) dan dokumen pendukungnya.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "04.01", archiveType: "Laporan Bulanan", description: "Laporan berkala setiap bulan mengenai pelaksanaan program dan anggaran.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "04.02", archiveType: "Laporan Triwulan", description: "Laporan berkala setiap tiga bulan (Triwulan I, II, III, IV).", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "04.04", archiveType: "Laporan Tahunan", description: "Laporan komprehensif atas pelaksanaan tugas selama satu tahun anggaran.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "05.01", archiveType: "Rapat Kerja dengan DPR", description: "Bahan, risalah, and laporan hasil rapat kerja atau dengar pendapat dengan DPR.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "05.02", archiveType: "Rapat Pimpinan (Rapim)", description: "Bahan dan risalah rapat pimpinan kementerian.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "05.03", archiveType: "Rakernas", description: "Rapat Kerja Nasional (Rakernas) Kementerian Hukum dan HAM.", category: "Fasilitatif" },
+  { mainCode: "PR", subCode: "06.01", archiveType: "Sidang Kabinet", description: "Bahan dan laporan hasil sidang kabinet paripurna atau terbatas.", category: "Fasilitatif" },
+
+  { mainCode: "OT", subCode: "01.01", archiveType: "Ortala Kementerian", description: "Dokumen mengenai penataan organisasi, struktur, dan tata kerja kementerian.", category: "Fasilitatif" },
+  { mainCode: "OT", subCode: "01.02", archiveType: "Ortala Kantor Wilayah", description: "Dokumen penataan organisasi dan tata kerja kantor wilayah dan UPT.", category: "Fasilitatif" },
+  { mainCode: "OT", subCode: "02.01", archiveType: "Analisis Jabatan (ANJAB)", description: "Hasil analisis jabatan, analisis beban kerja (ABK), dan evaluasi jabatan.", category: "Fasilitatif" },
+  { mainCode: "OT", subCode: "02.02", archiveType: "SOP", description: "Standar Operasional Prosedur (SOP) pelaksanaan tugas dan fungsi.", category: "Fasilitatif" },
+  { mainCode: "OT", subCode: "02.03", archiveType: "Peta Proses Bisnis", description: "Dokumen pemetaan proses bisnis instansi.", category: "Fasilitatif" },
+  { mainCode: "OT", subCode: "03.01", archiveType: "PMPRB", description: "Penilaian Mandiri Pelaksanaan Reformasi Birokrasi (PMPRB).", category: "Fasilitatif" },
+  { mainCode: "OT", subCode: "03.02", archiveType: "Zona Integritas (ZI)", description: "Dokumen pembangunan zona integritas menuju WBK dan WBBM.", category: "Fasilitatif" },
+  { mainCode: "OT", subCode: "04.01", archiveType: "Instruksi Menteri", description: "Naskah dinas instruksi menteri terkait tata laksana.", category: "Fasilitatif" },
+
+  { mainCode: "KP", subCode: "01.01", archiveType: "Formasi Pegawai", description: "Usulan dan penetapan formasi kebutuhan pegawai.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "02.01", archiveType: "Penerimaan Pegawai", description: "Pengumuman, pendaftaran, seleksi, dan pengumuman hasil penerimaan CPNS/PNS.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "03.01", archiveType: "Ujian Dinas", description: "Penyelenggaraan ujian dinas dan ujian penyesuaian ijazah.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "04.01", archiveType: "Alih Tugas/Mutasi", description: "Dokumen perpindahan tugas pegawai (internal/eksternal).", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "04.04", archiveType: "Kenaikan Gaji Berkala (KGB)", description: "Proses dan surat pemberitahuan kenaikan gaji berkala.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "05.01", archiveType: "Sasaran Kinerja Pegawai (SKP)", description: "Penilaian prestasi kerja dan perilaku kerja pegawai tahunan.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "06.01", archiveType: "Pengembangan Pegawai", description: "Berkas ijin belajar, tugas belajar, dan kursus/pelatihan.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "07.01", archiveType: "Hukuman Disiplin", description: "Proses pemeriksaan dan penjatuhan hukuman disiplin pegawai.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "08.01", archiveType: "Izin/Cuti", description: "Surat permohonan dan surat izin/cuti pegawai.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "09.01", archiveType: "Kesejahteraan/Kesehatan", description: "Dokumen asuransi kesehatan, Taspen, dan cek kesehatan.", category: "Fasilitatif" },
+  { mainCode: "KP", subCode: "11.01", archiveType: "Pensiun", description: "Berkas usul penetapan pensiun pegawai (BUP, Janda/Duda).", category: "Fasilitatif" },
+
+  { mainCode: "KU", subCode: "01.01", archiveType: "DIPA", description: "Daftar Isian Pelaksanaan Anggaran dan revisi-revisinya.", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "01.02", archiveType: "Target PNBP", description: "Rencana target dan realisasi Penerimaan Negara Bukan Pajak.", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "01.03", archiveType: "Revisi DIPA", description: "Dokumen proses usulan dan penetapan revisi anggaran.", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "02.01", archiveType: "Hibah", description: "Dokumen administrasi dana hibah (Naskah Perjanjian, Penetapan).", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "02.02", archiveType: "UP/TUP", description: "Uang Persediaan dan Tambahan Uang Persediaan.", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "03.01", archiveType: "SPP/SPM/SP2D", description: "Surat Permintaan Pembayaran, Surat Perintah Membayar, dan SP2D.", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "03.03", archiveType: "LPJ Bendahara", description: "Laporan Pertanggungjawaban Bendahara (Pengeluaran/Penerimaan).", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "04.01", archiveType: "Rekonsiliasi Laporan", description: "Dokumen berita acara rekonsiliasi laporan keuangan.", category: "Fasilitatif" },
+  { mainCode: "KU", subCode: "04.03", archiveType: "Tindak Lanjut Temuan BPK", description: "Laporan penyelesaian atas temuan hasil pemeriksaan BPK.", category: "Fasilitatif" },
+
+  { mainCode: "PB", subCode: "01.01", archiveType: "RKBMN", description: "Rencana Kebutuhan Barang Milik Negara (RKBMN).", category: "Fasilitatif" },
+  { mainCode: "PB", subCode: "02.01", archiveType: "Pengadaan Barang/Jasa", description: "Dokumen proses lelang, kontrak, dan serah terima pengadaan.", category: "Fasilitatif" },
+  { mainCode: "PB", subCode: "03.01", archiveType: "Penggunaan BMN", description: "Surat Keputusan penetapan status penggunaan BMN.", category: "Fasilitatif" },
+  { mainCode: "PB", subCode: "03.02", archiveType: "Sertifikasi Tanah", description: "Dokumen sertifikasi dan pengamanan aset tanah BMN.", category: "Fasilitatif" },
+  { mainCode: "PB", subCode: "04.01", archiveType: "Inventarisasi BMN", description: "Laporan hasil sensus/inventarisasi BMN.", category: "Fasilitatif" },
+  { mainCode: "PB", subCode: "05.02", archiveType: "Penghapusan BMN", description: "Dokumen pemindahtanganan dan penghapusan BMN (Lelang/Hibah).", category: "Fasilitatif" },
+  { mainCode: "PB", subCode: "06.01", archiveType: "Pemanfaatan BMN", description: "Dokumen sewa, pinjam pakai, dan KSP BMN.", category: "Fasilitatif" },
+
+  { mainCode: "HH", subCode: "01.01", archiveType: "Siaran Pers", description: "Bahan dan naskah siaran pers/press release.", category: "Fasilitatif" },
+  { mainCode: "HH", subCode: "01.02", archiveType: "Liputan/Publikasi", description: "Dokumentasi liputan media dan kliping berita.", category: "Fasilitatif" },
+  { mainCode: "HH", subCode: "02.01", archiveType: "Pameran", description: "Dokumen penyelenggaraan pameran dan expo.", category: "Fasilitatif" },
+  { mainCode: "HH", subCode: "03.01", archiveType: "Kunjungan Luar Negeri", description: "Bahan dan laporan kunjungan tamu asing.", category: "Fasilitatif" },
+  { mainCode: "HH", subCode: "04.01", archiveType: "Kerja Sama", description: "Naskah MoU dan PKS dengan instansi pemerintah/swasta.", category: "Fasilitatif" },
+  { mainCode: "HH", subCode: "05.01", archiveType: "Advokasi Hukum", description: "Pendampingan hukum kasus perdata, tata usaha negara, dan pidana.", category: "Fasilitatif" },
+
+  { mainCode: "UM", subCode: "01.01", archiveType: "Persuratan", description: "Pengelolaan surat masuk dan surat keluar.", category: "Fasilitatif" },
+  { mainCode: "UM", subCode: "02.01", archiveType: "Pengelolaan Arsip", description: "Daftar arsip aktif, inaktif, dan berita acara pemindahan.", category: "Fasilitatif" },
+  { mainCode: "UM", subCode: "02.02", archiveType: "Pemusnahan Arsip", description: "Berita acara dan daftar arsip yang dimusnahkan.", category: "Fasilitatif" },
+  { mainCode: "UM", subCode: "03.01", archiveType: "Gedung/Tanah", description: "Dokumen pemeliharaan gedung dan aset tanah dinas.", category: "Fasilitatif" },
+  { mainCode: "UM", subCode: "03.02", archiveType: "Kendaraan Dinas", description: "Riwayat pemeliharaan dan dokumen kendaraan dinas.", category: "Fasilitatif" },
+  { mainCode: "UM", subCode: "04.01", archiveType: "Protokoler", description: "Penyelenggaraan upacara, pelantikan, dan kunjungan tamu pimpinan.", category: "Fasilitatif" },
+  { mainCode: "UM", subCode: "05.01", archiveType: "Keamanan Dalam", description: "Laporan harian keamanan dan pengamanan fisik kantor.", category: "Fasilitatif" },
+
+  { mainCode: "PW", subCode: "01.01", archiveType: "PKPT", description: "Program Kerja Pengawasan Tahunan ITJEN.", category: "Fasilitatif" },
+  { mainCode: "PW", subCode: "02.01", archiveType: "Audit", description: "Kertas Kerja Pemeriksaan (KKP) dan proses audit.", category: "Fasilitatif" },
+  { mainCode: "PW", subCode: "02.02", archiveType: "Monitoring/Review", description: "Pemantauan tindak lanjut dan review laporan.", category: "Fasilitatif" },
+  { mainCode: "PW", subCode: "03.01", archiveType: "Laporan Hasil Audit", description: "LHA, LHP, dan laporan pemantauan pengawasan.", category: "Fasilitatif" },
+  { mainCode: "PW", subCode: "06.01", archiveType: "WBS", description: "Pengelolaan Whistle Blowing System.", category: "Fasilitatif" },
+
+  { mainCode: "TI", subCode: "01.01", archiveType: "Keamanan Data", description: "Standardisasi backup data and manajemen keamanan informasi.", category: "Fasilitatif" },
+  { mainCode: "TI", subCode: "01.02", archiveType: "Disaster Recovery", description: "Dokumen rencana dan pelaksanaan pemulihan data pasca bencana.", category: "Fasilitatif" },
+  { mainCode: "TI", subCode: "02.01", archiveType: "Infrastruktur Jaringan", description: "Pengelolaan jaringan LAN/WAN dan server internet.", category: "Fasilitatif" },
+  { mainCode: "TI", subCode: "03.01", archiveType: "Aplikasi", description: "Dokumen pengembangan dan pemeliharaan aplikasi sistem informasi.", category: "Fasilitatif" },
+
+  { mainCode: "PP", subCode: "01.01", archiveType: "Perancangan RUU", description: "Dokumen penyusunan Rancangan Undang-Undang.", category: "Substantif" },
+  { mainCode: "PP", subCode: "01.04", archiveType: "Perancangan Rpermen", description: "Dokumen penyusunan Rancangan Peraturan Menteri.", category: "Substantif" },
+  { mainCode: "PP", subCode: "02.01", archiveType: "Harmonisasi", description: "Berita acara and laporan hasil harmonisasi regulasi.", category: "Substantif" },
+  { mainCode: "PP", subCode: "05.01", archiveType: "Dokumentasi Hukum", description: "Pengelolaan basis data produk hukum.", category: "Substantif" },
+
+  { mainCode: "AH", subCode: "01.01", archiveType: "Pengesahan PT", description: "Berkas permohonan and surat keputusan pengesahan PT.", category: "Substantif" },
+  { mainCode: "AH", subCode: "01.29", archiveType: "Badan Hukum Koperasi", description: "Proses pengesahan and perubahan anggaran dasar koperasi.", category: "Substantif" },
+  { mainCode: "AH", subCode: "02.01", archiveType: "Notariat", description: "Pengangkatan, perpindahan, and cuti Notaris.", category: "Substantif" },
+  { mainCode: "AH", subCode: "03.01", archiveType: "Legalisasi", description: "Layanan legalisasi tanda tangan pejabat publik.", category: "Substantif" },
+  { mainCode: "AH", subCode: "05.01", archiveType: "Fidusia", description: "Pendaftaran, perubahan, and pencoretan jaminan fidusia.", category: "Substantif" },
+  { mainCode: "AH", subCode: "11.01", archiveType: "Balai Harta Peninggalan", description: "Pengurusan boedel warisan dan perwalian.", category: "Substantif" },
+
+  { mainCode: "PK", subCode: "01.01", archiveType: "Registrasi Tahanan", description: "Dokumen pendaftaran and buku register tahanan.", category: "Substantif" },
+  { mainCode: "PK", subCode: "05.01", archiveType: "Remisi", description: "Usulan and SK pemberian remisi narapidana.", category: "Substantif" },
+  { mainCode: "PK", subCode: "05.02", archiveType: "Integrasi (PB/CB)", description: "Pembebasan Bersyarat, Cuti Menjelang Bebas, Cuti Bersyarat.", category: "Substantif" },
+  { mainCode: "PK", subCode: "07.01", archiveType: "Basan Baran", description: "Pengelolaan Benda Sitaan (Basan) dan Barang Rampasan (Baran).", category: "Substantif" },
+
+  { mainCode: "GR", subCode: "01.01", archiveType: "Paspor RI", description: "Berkas permohonan and penerbitan Paspor Republik Indonesia.", category: "Substantif" },
+  { mainCode: "GR", subCode: "01.02", archiveType: "Visa", description: "Berkas permohonan and persetujuan Visa kunjungan/tinggal terbatas.", category: "Substantif" },
+  { mainCode: "GR", subCode: "02.01", archiveType: "Izin Tinggal", description: "ITK, ITAS, and ITAP bagi warga negara asing.", category: "Substantif" },
+  { mainCode: "GR", subCode: "03.01", archiveType: "Pendeportasian", description: "Dokumen tindakan administratif keimigrasian berupa deportasi.", category: "Substantif" },
+  { mainCode: "GR", subCode: "04.01", archiveType: "Intelijen Keimigrasian", description: "Dokumen penyelidikan dan intelijen keimigrasian.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "01.01.01", archiveType: "Pendaftaran Hak Cipta", description: "Permohonan pencatatan ciptaan, buku, seni, musik, dll.", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.02.04", archiveType: "Pengalihan Hak Cipta", description: "Pencatatan pengalihan hak ekonomi atas ciptaan.", category: "Substantif" },
+  { mainCode: "KI", subCode: "05.01.01", archiveType: "Permohonan Paten", description: "Permohonan paten/paten sederhana dari pendaftaran hingga pemberian.", category: "Substantif" },
+  { mainCode: "KI", subCode: "05.04.01", archiveType: "Pemeliharaan Paten", description: "Dokumen pembayaran biaya tahunan paten.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.01.01", archiveType: "Pendaftaran Merek", description: "Permohonan pendaftaran merek dagang, jasa, and kolektif.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.01.10", archiveType: "Sertifikat Merek", description: "Bukti otentik pendaftaran merek terdaftar.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.05.01", archiveType: "Penghapusan Merek", description: "Proses pembatalan atau penghapusan merek terdaftar.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.09.01", archiveType: "Perpanjangan Merek", description: "Berkas perpanjangan masa perlindungan merek (10 tahun).", category: "Substantif" },
+  { mainCode: "KI", subCode: "08.01", archiveType: "Penyidikan (PPNS)", description: "BAP and berkas perkara tindak pidana kekayaan intelektual.", category: "Substantif" },
+
+  { mainCode: "HA", subCode: "01.01", archiveType: "Yankomas", description: "Penanganan dugaan pelanggaran HAM yang disampaikan masyarakat.", category: "Substantif" },
+  { mainCode: "HA", subCode: "02.01", archiveType: "Kerja Sama HAM", description: "Dokumen kerja sama internasional di bidang HAM.", category: "Substantif" },
+  { mainCode: "HA", subCode: "04.01", archiveType: "Instrumen HAM", description: "Analisis and evaluasi peraturan perundang-undangan perspektif HAM.", category: "Substantif" },
+
+  { mainCode: "HN", subCode: "01.01", archiveType: "Analisis Hukum", description: "Hasil evaluasi and analisis hukum nasional.", category: "Substantif" },
+  { mainCode: "HN", subCode: "03.01", archiveType: "JDIH", description: "Pengelolaan Jaringan Dokumentasi dan Informasi Hukum.", category: "Substantif" },
+  { mainCode: "HN", subCode: "04.01", archiveType: "Penyuluhan Hukum", description: "Dokumen kegiatan sosialisasi and penyuluhan hukum.", category: "Substantif" },
+
+  { mainCode: "SM", subCode: "01.01", archiveType: "Diklat Pim", description: "Penyelenggaraan pelatihan kepemimpinan tingkat I, II, III, IV.", category: "Substantif" },
+  { mainCode: "SM", subCode: "03.01", archiveType: "Diklat Fungsional", description: "Program pengembangan kompetensi jabatan fungsional.", category: "Substantif" },
+  { mainCode: "SM", subCode: "06.01", archiveType: "Assessment Center", description: "Hasil penilaian kompetensi manajerial and teknis pegawai.", category: "Substantif" },
+
+  { mainCode: "LT", subCode: "01.01", archiveType: "Penelitian Hukum", description: "Laporan akhir hasil penelitian di bidang hukum.", category: "Substantif" },
+  { mainCode: "LT", subCode: "02.01", archiveType: "Penelitian HAM", description: "Laporan akhir hasil penelitian di bidang hak asasi manusia.", category: "Substantif" },
+  { mainCode: "LT", subCode: "03.01", archiveType: "Evaluasi Kebijakan", description: "Laporan hasil evaluasi pelaksanaan kebijakan kementerian.", category: "Substantif" },
+];
+
+
 
 const INITIAL_DOCS: Archive[] = [
   {
@@ -146,7 +313,8 @@ const INITIAL_DOCS: Archive[] = [
     retentionPeriod: '10 Tahun',
     additionalNotes: '',
     uploadedBy: 'admin-merek',
-    uploadDate: '2023-11-12T08:00:00Z'
+    uploadDate: '2023-11-12T08:00:00Z',
+    ocrText: 'REPUBLIK INDONESIA DIREKTORAT JENDERAL KEKAYAAN INTELEKTUAL. Sertifikat Merek ini diberikan kepada PT Kenangan Abadi untuk Merek Kopi Kenangan dengan nomor pendaftaran IDM000987654. Produk: Biji Kopi panggang, minuman kopi, kopi bubuk.'
   },
   {
     id: '2',
@@ -259,7 +427,7 @@ const VaultLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
           <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ShieldCheck className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-2xl font-black text-slate-800">DJKI Vault</h1>
+          <h1 className="text-2xl font-black text-slate-800">Portal Arsip DJKI</h1>
           <p className="text-slate-500 text-sm">Sistem Arsip Digital Terenkripsi</p>
         </div>
 
@@ -326,14 +494,15 @@ const Sidebar: React.FC<{
     { id: 'archive-list', label: 'Daftar Arsip', icon: Archive },
     { id: 'search', label: 'Pencarian', icon: Search },
     { id: 'upload', label: 'Upload Arsip', icon: Upload },
-    { id: 'loans', label: 'Peminjaman', icon: Clock },
+    { id: 'loans', label: 'Peminjaman', icon: FileText },
     { id: 'vault', label: 'Vault Rahasia', icon: Lock },
     { id: 'labels', label: 'Cetak Label', icon: Printer },
     { id: 'scanner', label: 'Scan QR', icon: ScanLine },
     { id: 'reports', label: 'Laporan', icon: FileSpreadsheet },
     { id: 'units', label: 'Unit Kerja', icon: Building2 },
     { id: 'categories', label: 'Kategori Arsip', icon: FolderOpen },
-    { id: 'classifications', label: 'Klasifikasi', icon: ShieldCheck },
+    { id: 'classifications', label: 'Keamanan', icon: ShieldCheck },
+    { id: 'archive-codes', label: 'Kode Klasifikasi', icon: ListTree },
     { id: 'users', label: 'Manajemen User', icon: UserIcon },
     { id: 'access', label: 'Hak Akses', icon: Shield },
     { id: 'settings', label: 'Pengaturan', icon: RefreshCw },
@@ -361,7 +530,7 @@ const Sidebar: React.FC<{
                 <ShieldCheck className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="font-black text-lg truncate">DJKI Vault</h1>
+                <h1 className="font-black text-lg truncate">Portal Arsip DJKI</h1>
                 <p className="text-[10px] text-slate-400">Arsip Digital</p>
               </div>
             </div>
@@ -445,6 +614,59 @@ const ArchiveForm: React.FC<{
   onClose: () => void;
 }> = ({ archive, onSave, onClose }) => {
   const [data, setData] = useState<Archive>(archive || { ...EMPTY_ARCHIVE, id: crypto.randomUUID() });
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' }), []);
+
+  const handleOcr = async (file: File) => {
+    if (!ai) return;
+    setIsOcrLoading(true);
+    setOcrStatus('processing');
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Data = e.target?.result?.toString().split(',')[1];
+        if (!base64Data) throw new Error("Failed to read file");
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: file.type,
+                  data: base64Data
+                }
+              },
+              {
+                text: "Ekstrak seluruh teks dari dokumen ini secara akurat. Jika ini adalah formulir, ekstrak semua data yang ada. Kembalikan hanya teks mentah yang diekstrak."
+              }
+            ]
+          }
+        });
+
+        const extractedText = response.text || "";
+        setData(prev => ({ ...prev, ocrText: extractedText }));
+        setOcrStatus('done');
+        setIsOcrLoading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("OCR Error:", error);
+      setOcrStatus('error');
+      setIsOcrLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleOcr(file);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setData({ ...data, [e.target.name]: e.target.value });
@@ -506,7 +728,35 @@ const ArchiveForm: React.FC<{
                 <InputField name="archiveItemNumber" label="Nomor Item" value={data.archiveItemNumber} onChange={handleChange} placeholder="ITEM-01" />
                 <InputField name="boxNumber" label="Nomor Box" value={data.boxNumber} onChange={handleChange} placeholder="BOX-2024-XXX" />
                 <SelectField name="archiveCategory" label="Kategori" value={data.archiveCategory} onChange={handleChange} options={['Aktif', 'Inaktif', 'Statis', 'Vital']} />
-                <InputField name="classificationCode" label="Kode Klasifikasi" value={data.classificationCode} onChange={handleChange} placeholder="HK.01.01" />
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Kode Klasifikasi</label>
+                  <select
+                    name="classificationCode"
+                    value={data.classificationCode}
+                    onChange={(e) => {
+                      const selectedCode = e.target.value;
+                      const mapping = CLASSIFICATION_CODES.find(c => `${c.mainCode}.${c.subCode}` === selectedCode);
+                      if (mapping) {
+                        setData(prev => ({
+                          ...prev,
+                          classificationCode: selectedCode,
+                          archiveType: mapping.archiveType,
+                          archiveDescription: mapping.description
+                        }));
+                      } else {
+                        setData(prev => ({ ...prev, classificationCode: selectedCode }));
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  >
+                    <option value="">-- Pilih Kode Klasifikasi --</option>
+                    {CLASSIFICATION_CODES.map(item => (
+                      <option key={`${item.mainCode}.${item.subCode}`} value={`${item.mainCode}.${item.subCode}`}>
+                        {item.mainCode}.{item.subCode} - {item.archiveType}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <SelectField name="documentForm" label="Bentuk Naskah" value={data.documentForm} onChange={handleChange} options={['Asli', 'Salinan', 'Scan']} />
               </div>
             </div>
@@ -559,10 +809,58 @@ const ArchiveForm: React.FC<{
             <div>
               <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
                 <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xs">5</span>
-                Unit & Tambahan
+                Media & Tambahan
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <SelectField name="processingUnit" label="Unit Pengolah" value={data.processingUnit} onChange={handleChange} options={DJKI_UNITS} />
+                
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-400 uppercase">Input Berkas Digital (OCR Otomatis)</label>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange} 
+                    className="hidden" 
+                    accept="application/pdf,image/*"
+                  />
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
+                      ocrStatus === 'processing' ? 'border-amber-400 bg-amber-50 animate-pulse' :
+                      ocrStatus === 'done' ? 'border-emerald-400 bg-emerald-50' :
+                      'border-slate-200 bg-slate-50 hover:border-blue-400'
+                    }`}
+                  >
+                    {ocrStatus === 'processing' ? (
+                      <div className="space-y-2">
+                        <RefreshCw className="w-8 h-8 text-amber-500 mx-auto mb-2 animate-spin" />
+                        <p className="text-sm font-bold text-amber-700">Sedang Mengekstrak Teks (AI)...</p>
+                      </div>
+                    ) : ocrStatus === 'done' ? (
+                      <div className="space-y-2">
+                        <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                        <p className="text-sm font-bold text-emerald-700">Teks Berhasil Diekstrak!</p>
+                        <p className="text-[10px] text-emerald-500 uppercase font-black">Konten siap diproses untuk pencarian</p>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-sm font-bold text-slate-500">Klik untuk Unggah Berkas PDF/Gambar</p>
+                        <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-black">AI akan otomatis membaca isi dokumen</p>
+                      </>
+                    )}
+                  </div>
+                  
+                  {data.ocrText && (
+                    <div className="mt-4 p-4 bg-slate-100 rounded-xl border border-slate-200">
+                      <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Preview Hasil Ekstraksi Teks:</p>
+                      <div className="max-h-32 overflow-y-auto text-[10px] text-slate-600 font-mono leading-relaxed bg-white p-3 rounded-lg border border-slate-100">
+                        {data.ocrText}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <TextAreaField name="additionalNotes" label="Catatan Tambahan" value={data.additionalNotes} onChange={handleChange} rows={3} />
               </div>
             </div>
@@ -752,6 +1050,21 @@ const ArchiveDetail: React.FC<{
             </div>
           </div>
 
+          {archive.ocrText && (
+            <div className="space-y-3">
+              <h4 className="font-black text-slate-800 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                Konten Digital (Hasil OCR AI)
+              </h4>
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 font-mono text-xs text-slate-600 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto shadow-inner">
+                {archive.ocrText}
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium italic">
+                *Teks di atas diekstrak menggunakan kecerdasan buatan dan dapat dicari melalui kolom pencarian.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-4">
             <button 
               onClick={() => onEdit(archive)}
@@ -822,6 +1135,213 @@ const ArchiveDetail: React.FC<{
   );
 };
 
+// ======================================================
+// LOAN FORM COMPONENT
+// ======================================================
+const LoanFormModal: React.FC<{
+  archives: Archive[];
+  onClose: () => void;
+  onSave: (docId: string, name: string, nip: string, unit: string, notes: string) => void;
+}> = ({ archives, onClose, onSave }) => {
+  const [selectedArchiveId, setSelectedArchiveId] = useState('');
+  const [name, setName] = useState('');
+  const [nip, setNip] = useState('');
+  const [unit, setUnit] = useState('');
+  const [notes, setNotes] = useState('');
+  const [searchDoc, setSearchDoc] = useState('');
+
+  const filteredArchives = archives.filter(doc => 
+    doc.name.toLowerCase().includes(searchDoc.toLowerCase()) || 
+    doc.fileNumber.toLowerCase().includes(searchDoc.toLowerCase())
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+      >
+        <div className="p-8 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+          <div>
+            <h3 className="text-2xl font-black text-slate-800 tracking-tight">Form Peminjaman Arsip</h3>
+            <p className="text-slate-500 text-sm">Silahkan isi data peminjam dan arsip yang dipinjam.</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <X className="w-6 h-6 text-slate-400" />
+          </button>
+        </div>
+
+        <div className="p-8 space-y-6">
+          <div className="space-y-4">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Cari & Pilih Arsip</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Ketik nama atau nomor berkas..."
+                value={searchDoc}
+                onChange={(e) => setSearchDoc(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+              />
+            </div>
+            <div className="max-h-[200px] overflow-y-auto border border-slate-100 rounded-2xl p-2 space-y-1 custom-scrollbar">
+              {filteredArchives.map(doc => (
+                <button
+                  key={doc.id}
+                  onClick={() => setSelectedArchiveId(doc.id)}
+                  className={`w-full text-left p-3 rounded-xl text-xs transition-all ${
+                    selectedArchiveId === doc.id 
+                      ? 'bg-blue-600 text-white' 
+                      : 'hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <p className="font-bold">{doc.name}</p>
+                  <p className={selectedArchiveId === doc.id ? 'text-blue-100' : 'text-slate-400'}>{doc.fileNumber} • {doc.processingUnit}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Peminjam</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Contoh: Ahmad Subardjo"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">NIP Peminjam</label>
+              <input
+                type="text"
+                value={nip}
+                onChange={(e) => setNip(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="1987..."
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Unit Kerja Peminjam</label>
+            <select
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">-- Pilih Unit Kerja --</option>
+              {DJKI_UNITS.map(unitOption => (
+                <option key={unitOption} value={unitOption}>{unitOption}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Catatan Keperluan</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
+              placeholder="Sebutkan alasan peminjaman..."
+            ></textarea>
+          </div>
+        </div>
+
+        <div className="p-8 bg-slate-50 flex justify-end gap-3 sticky bottom-0 z-10">
+          <button onClick={onClose} className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-200 rounded-xl transition-all">Batal</button>
+          <button
+            onClick={() => onSave(selectedArchiveId, name, nip, unit, notes)}
+            disabled={!selectedArchiveId || !name || !unit}
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-black text-sm hover:bg-blue-700 shadow-lg shadow-blue-100 disabled:opacity-50 transition-all"
+          >
+            Konfirmasi Pinjam
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+const ReturnFormModal: React.FC<{
+  loan: LoanRecord;
+  archive: Archive | undefined;
+  onClose: () => void;
+  onSave: (loanId: string, notes: string) => void;
+}> = ({ loan, archive, onClose, onSave }) => {
+  const [notes, setNotes] = useState('');
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden"
+      >
+        <div className="p-8 border-b border-slate-100">
+          <h3 className="text-2xl font-black text-slate-800 tracking-tight">Form Pengembalian Arsip</h3>
+          <p className="text-slate-500 text-sm">Pastikan kondisi arsip kembali sesuai saat dipinjam.</p>
+        </div>
+
+        <div className="p-8 space-y-6">
+          <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-4">
+             <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                <Archive className="w-6 h-6" />
+             </div>
+             <div>
+                <p className="text-[10px] font-black text-blue-400 uppercase mb-0.5">Arsip Dipinjam</p>
+                <p className="text-sm font-bold text-blue-900 leading-tight">{archive?.name}</p>
+                <p className="text-[10px] text-blue-400 uppercase font-black">{archive?.fileNumber}</p>
+             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Peminjam</p>
+               <p className="text-sm font-bold text-slate-800">{loan.borrowerName}</p>
+            </div>
+            <div>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tgl Pinjam</p>
+               <p className="text-sm font-bold text-slate-800">{new Date(loan.loanDate).toLocaleDateString('id-ID')}</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kondisi / Catatan Kembali</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
+              placeholder="Contoh: Kondisi baik, lengkap..."
+            ></textarea>
+          </div>
+        </div>
+
+        <div className="p-8 bg-slate-50 flex justify-end gap-3">
+          <button onClick={onClose} className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-200 rounded-xl transition-all">Batal</button>
+          <button
+            onClick={() => onSave(loan.id, notes)}
+            className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-black text-sm hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all"
+          >
+            Selesaikan Pengembalian
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 const DetailItem: React.FC<{ label: string; value: string; icon: React.ComponentType<any> }> = ({ label, value, icon: Icon }) => (
   <div className="flex items-start gap-3">
     <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 shrink-0">
@@ -844,19 +1364,28 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [documents, setDocuments] = useState<Archive[]>(INITIAL_DOCS);
-  const [boxes, setBoxes] = useState<ArchiveBox[]>([]);
+  const [boxes, setBoxes] = useState<ArchiveBox[]>(INITIAL_BOXES);
   const [selectedBox, setSelectedBox] = useState<ArchiveBox | null>(null);
+  const [selectedArchiveForLabel, setSelectedArchiveForLabel] = useState<Archive | null>(null);
+  const [labelMode, setLabelMode] = useState<'box' | 'berkas'>('box');
+  const [searchLabel, setSearchLabel] = useState('');
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [loans, setLoans] = useState<LoanRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Semua');
   const [filterLocation, setFilterLocation] = useState('Semua');
+  const [filterUnit, setFilterUnit] = useState('Semua');
+  const [filterYear, setFilterYear] = useState('Semua');
+  const [searchCodeQuery, setSearchCodeQuery] = useState('');
   const [selectedDocForEdit, setSelectedDocForEdit] = useState<Archive | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [scannedData, setScannedData] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showVault, setShowVault] = useState(false);
   const [vaultPassword, setVaultPassword] = useState('');
+  const [showLoanForm, setShowLoanForm] = useState(false);
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<LoanRecord | null>(null);
   const [selectedDocForDetail, setSelectedDocForDetail] = useState<Archive | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [reportPeriod, setReportPeriod] = useState('Semua');
@@ -890,14 +1419,33 @@ const App: React.FC = () => {
         doc.archiveDescription.toLowerCase().includes(searchStr) || 
         doc.documentNumber.toLowerCase().includes(searchStr) ||
         doc.name.toLowerCase().includes(searchStr) ||
-        doc.fileNumber.toLowerCase().includes(searchStr);
+        doc.fileNumber.toLowerCase().includes(searchStr) ||
+        doc.processingUnit.toLowerCase().includes(searchStr) ||
+        doc.archiveType.toLowerCase().includes(searchStr) ||
+        doc.archiveCategory.toLowerCase().includes(searchStr) ||
+        doc.building.toLowerCase().includes(searchStr) ||
+        doc.yearRange.toLowerCase().includes(searchStr) ||
+        doc.additionalNotes.toLowerCase().includes(searchStr) ||
+        (doc.ocrText?.toLowerCase().includes(searchStr) || false);
       
       const matchesCategory = filterCategory === 'Semua' || doc.archiveCategory === filterCategory;
       const matchesLocation = filterLocation === 'Semua' || doc.building === filterLocation;
+      const matchesUnit = filterUnit === 'Semua' || doc.processingUnit === filterUnit;
+      const matchesYear = filterYear === 'Semua' || doc.archiveYear === filterYear;
       
-      return matchesSearch && matchesCategory && matchesLocation;
+      return matchesSearch && matchesCategory && matchesLocation && matchesUnit && matchesYear;
     });
-  }, [documents, searchQuery, filterCategory, filterLocation, currentUser]);
+  }, [documents, searchQuery, filterCategory, filterLocation, filterUnit, filterYear, currentUser]);
+
+  const filteredCodes = useMemo(() => {
+    return CLASSIFICATION_CODES.filter(item => 
+      item.mainCode.toLowerCase().includes(searchCodeQuery.toLowerCase()) ||
+      item.subCode.toLowerCase().includes(searchCodeQuery.toLowerCase()) ||
+      item.archiveType.toLowerCase().includes(searchCodeQuery.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchCodeQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchCodeQuery.toLowerCase())
+    );
+  }, [searchCodeQuery]);
 
   // Stats per unit
   const unitStats = useMemo(() => {
@@ -1032,25 +1580,29 @@ const App: React.FC = () => {
   }, [activeTab, isScanning, selectedCameraId]);
 
   // Loan functions
-  const createLoan = (archiveId: string, borrowerName: string, borrowerNip: string) => {
+  const createLoan = (archiveId: string, borrowerName: string, borrowerNip: string, borrowerUnit: string, notes: string) => {
     const loan: LoanRecord = {
       id: crypto.randomUUID(),
       archiveId,
       borrowerName,
       borrowerNip,
+      borrowerUnit,
       loanDate: new Date().toISOString(),
       status: 'Dipinjam',
-      notes: ''
+      notes
     };
-    setLoans([...loans, loan]);
+    setLoans([loan, ...loans]);
+    setShowLoanForm(false);
   };
 
-  const returnLoan = (loanId: string) => {
+  const returnLoan = (loanId: string, notes: string) => {
     setLoans(loans.map(l => 
       l.id === loanId 
-        ? { ...l, status: 'Dikembalikan', returnDate: new Date().toISOString() }
+        ? { ...l, status: 'Dikembalikan', returnDate: new Date().toISOString(), notes: `${l.notes}\n\n[Kembali]: ${notes}` }
         : l
     ));
+    setShowReturnForm(false);
+    setSelectedLoanForReturn(null);
   };
 
   // Vault access
@@ -1107,6 +1659,7 @@ const App: React.FC = () => {
                   {activeTab === 'vault' && 'Vault Rahasia'}
                   {activeTab === 'labels' && 'Cetak Label'}
                   {activeTab === 'scanner' && 'Scan QR Code'}
+                  {activeTab === 'archive-codes' && 'Daftar Kode Klasifikasi'}
                   {activeTab === 'reports' && 'Laporan'}
                   {activeTab === 'units' && 'Unit DJKI'}
                   {activeTab === 'users' && 'Pengguna'}
@@ -1151,7 +1704,7 @@ const App: React.FC = () => {
                 <StatCard title="Total Arsip" value={documents.length} icon={Archive} color="bg-blue-600" />
                 <StatCard title="Arsip Aktif" value={documents.filter(d => d.archiveCategory === 'Aktif').length} icon={CheckCircle} color="bg-emerald-600" />
                 <StatCard title="Arsip Rahasia" value={documents.filter(d => d.securityClassification === 'Rahasia').length} icon={Lock} color="bg-red-600" />
-                <StatCard title="Sedang Dipinjam" value={loans.filter(l => l.status === 'Dipinjam').length} icon={Clock} color="bg-amber-600" />
+                <StatCard title="Sedang Dipinjam" value={loans.filter(l => l.status === 'Dipinjam').length} icon={FileText} color="bg-amber-600" />
               </div>
 
               {/* Charts */}
@@ -1216,8 +1769,8 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* Archive List / Detail */}
-          {activeTab === 'archive-list' && (
+          {/* Archive List / Detail / Search */}
+          {(activeTab === 'archive-list' || activeTab === 'search') && (
             <div className="space-y-6">
               {selectedDocForDetail ? (
                 <ArchiveDetail 
@@ -1260,7 +1813,7 @@ const App: React.FC = () => {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input
                         type="text"
-                        placeholder="Cari metadata arsip..."
+                        placeholder="Cari apa saja (Nama, No Berkas, Unit, Tahun, Lokasi)..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all"
@@ -1285,6 +1838,26 @@ const App: React.FC = () => {
                       <option value="Semua">Semua Lokasi</option>
                       {Array.from(new Set(documents.map(d => d.building))).map(building => (
                         <option key={building} value={building}>{building}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={filterUnit}
+                      onChange={(e) => setFilterUnit(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none max-w-[150px]"
+                    >
+                      <option value="Semua">Semua Unit</option>
+                      {DJKI_UNITS.map(unit => (
+                        <option key={unit} value={unit}>{unit}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={filterYear}
+                      onChange={(e) => setFilterYear(e.target.value)}
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none"
+                    >
+                      <option value="Semua">Semua Tahun</option>
+                      {Array.from(new Set(documents.map(d => d.archiveYear) as string[])).filter((y: string) => y && y.length === 4).sort((a: string, b: string) => b.localeCompare(a)).map(year => (
+                        <option key={year} value={year}>{year}</option>
                       ))}
                     </select>
                   </div>
@@ -1468,53 +2041,127 @@ const App: React.FC = () => {
 
           {/* Loans */}
           {activeTab === 'loans' && (
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-4">Tracking Peminjaman Arsip</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50 border-b">
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Peminjam</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Tanggal Pinjam</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loans.map((loan) => (
-                      <tr key={loan.id} className="border-b">
-                        <td className="px-4 py-3 text-sm">{loan.borrowerName}</td>
-                        <td className="px-4 py-3 text-sm">{new Date(loan.loanDate).toLocaleDateString('id-ID')}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            loan.status === 'Dipinjam' ? 'bg-amber-100 text-amber-700' :
-                            loan.status === 'Dikembalikan' ? 'bg-emerald-100 text-emerald-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
-                            {loan.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {loan.status === 'Dipinjam' && (
-                            <button
-                              onClick={() => returnLoan(loan.id)}
-                              className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold"
-                            >
-                              Kembalikan
-                            </button>
-                          )}
-                        </td>
+            <div className="space-y-8">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                  <h3 className="text-3xl font-black text-slate-800 tracking-tight">Manajemen Peminjaman</h3>
+                  <p className="text-slate-500 font-medium">Tracking sirkulasi dokumen fisik dan peta ketersediaan arsip.</p>
+                </div>
+                <button
+                  onClick={() => setShowLoanForm(true)}
+                  className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 transition-all active:scale-95"
+                >
+                  <Plus className="w-5 h-5" /> Buat Peminjaman Baru
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                 {[
+                   { label: 'Total Peminjaman', value: loans.length, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+                   { label: 'Sedang Dipinjam', value: loans.filter(l => l.status === 'Dipinjam').length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+                   { label: 'Sudah Kembali', value: loans.filter(l => l.status === 'Dikembalikan').length, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                   { label: 'Keterlambatan', value: 0, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50' },
+                 ].map((stat, i) => (
+                    <div key={i} className="p-6 bg-white rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
+                       <div className={`w-12 h-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center shrink-0`}>
+                          <stat.icon className="w-6 h-6" />
+                       </div>
+                       <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
+                          <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+
+              <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-8 border-b border-slate-100 bg-slate-50/30 flex items-center justify-between">
+                   <h4 className="font-black text-slate-800 tracking-tight">Log Sirkulasi Terkini</h4>
+                   <div className="flex gap-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3" />
+                         <input type="text" placeholder="Cari peminjam..." className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500 w-48" />
+                      </div>
+                   </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-100">
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Arsip & Peminjam</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Periode Pinjam</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Aksi</th>
                       </tr>
-                    ))}
-                    {loans.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
-                          Belum ada peminjaman
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {loans.map((loan) => {
+                        const archive = documents.find(d => d.id === loan.archiveId);
+                        return (
+                          <tr key={loan.id} className="hover:bg-slate-50/30 transition-colors">
+                            <td className="px-8 py-5">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                                   <Archive className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-black text-slate-800 leading-tight mb-0.5">{archive?.name || 'Arsip Dihapus'}</p>
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase">{loan.borrowerName} • {loan.borrowerNip}</p>
+                                  <p className="text-[9px] text-blue-500 font-black uppercase mt-0.5">{loan.borrowerUnit}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-8 py-5">
+                              <div>
+                                <p className="text-xs font-bold text-slate-700">Pinjam: {new Date(loan.loanDate).toLocaleDateString('id-ID')}</p>
+                                <p className="text-[10px] text-slate-400 font-medium">
+                                  {loan.returnDate ? `Balik: ${new Date(loan.returnDate).toLocaleDateString('id-ID')}` : 'Estimasi: 7 Hari'}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-8 py-5">
+                              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                loan.status === 'Dipinjam' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                loan.status === 'Dikembalikan' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                'bg-red-100 text-red-700 border border-red-200'
+                              }`}>
+                                {loan.status === 'Dipinjam' ? 'Sedang Keluar' : 'Sudah Kembali'}
+                              </span>
+                            </td>
+                            <td className="px-8 py-5 text-right">
+                              {loan.status === 'Dipinjam' ? (
+                                <button
+                                  onClick={() => {
+                                    setSelectedLoanForReturn(loan);
+                                    setShowReturnForm(true);
+                                  }}
+                                  className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all"
+                                >
+                                  Kembalikan
+                                </button>
+                              ) : (
+                                <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Lihat History">
+                                   <Plus className="w-5 h-5 rotate-45" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {loans.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-8 py-20 text-center">
+                            <div className="flex flex-col items-center justify-center opacity-30">
+                               <FileText className="w-16 h-16 mb-4" />
+                               <p className="font-black text-lg">Tidak Ada Data Peminjaman</p>
+                               <p className="text-xs">Sirkulasi arsip fisik akan muncul di sini</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -1572,51 +2219,150 @@ const App: React.FC = () => {
 
           {/* Labels */}
           {activeTab === 'labels' && (
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-4">Cetak Label Box Arsip</h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-3xl shadow-sm p-8 border border-slate-200">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
                 <div>
-                  <select
-                    value={selectedBox?.id || ''}
-                    onChange={(e) => {
-                      const box = boxes.find(b => b.id === e.target.value);
-                      setSelectedBox(box || null);
-                    }}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl mb-4"
-                  >
-                    <option value="">Pilih Box</option>
-                    {boxes.map((box) => (
-                      <option key={box.id} value={box.id}>{box.boxNumber}</option>
-                    ))}
-                  </select>
-                  {selectedBox && (
-                    <button
-                      onClick={printLabel}
-                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700"
-                    >
-                      Print Label
-                    </button>
-                  )}
+                  <h3 className="text-xl font-black text-slate-800">Sistem Cetak Label</h3>
+                  <p className="text-sm text-slate-500">Cetak label identitas untuk Box Arisip atau Map Berkas</p>
                 </div>
-                {selectedBox && (
-                  <div className="border-2 border-slate-900 p-4 w-full max-w-[300px]">
-                    <div className="flex items-center gap-3 mb-3">
-                      <QRCodeSVG
-                        value={JSON.stringify({
-                          boxId: selectedBox.id,
-                          boxNumber: selectedBox.boxNumber,
-                          location: selectedBox.location
-                        })}
-                        size={80}
-                      />
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button 
+                    className={`px-6 py-2 text-xs font-black rounded-lg transition-all ${
+                      labelMode === 'box' 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-slate-500 hover:text-blue-600'
+                    }`}
+                    onClick={() => setLabelMode('box')}
+                  >
+                    Label Box
+                  </button>
+                  <button 
+                    className={`px-6 py-2 text-xs font-black rounded-lg transition-all ${
+                      labelMode === 'berkas' 
+                        ? 'bg-white text-blue-600 shadow-sm' 
+                        : 'text-slate-500 hover:text-blue-600'
+                    }`}
+                    onClick={() => setLabelMode('berkas')}
+                  >
+                    Label Berkas
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div className="space-y-6">
+                  {labelMode === 'box' ? (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Pilih Box Arsip</label>
+                      <select
+                        value={selectedBox?.id || ''}
+                        onChange={(e) => {
+                          const box = boxes.find(b => b.id === e.target.value);
+                          setSelectedBox(box || null);
+                        }}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- Pilih Box --</option>
+                        {boxes.map((box) => (
+                          <option key={box.id} value={box.id}>{box.boxNumber} - {box.processingUnit}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
                       <div>
-                        <p className="font-bold text-lg">{selectedBox.boxNumber}</p>
-                        <p className="text-xs text-slate-600">{selectedBox.location}</p>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Cari Berkas</label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                          <input
+                            type="text"
+                            placeholder="Ketik nama atau nomor berkas..."
+                            value={searchLabel}
+                            onChange={(e) => setSearchLabel(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-[300px] overflow-y-auto border border-slate-100 rounded-2xl p-2 space-y-1 custom-scrollbar">
+                        {documents
+                          .filter(doc => 
+                            doc.name.toLowerCase().includes(searchLabel.toLowerCase()) || 
+                            doc.fileNumber.toLowerCase().includes(searchLabel.toLowerCase())
+                          )
+                          .map(doc => (
+                            <button
+                              key={doc.id}
+                              onClick={() => setSelectedArchiveForLabel(doc)}
+                              className={`w-full text-left p-3 rounded-xl text-xs transition-all ${
+                                selectedArchiveForLabel?.id === doc.id 
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-100' 
+                                  : 'hover:bg-slate-50 text-slate-600'
+                              }`}
+                            >
+                              <p className="font-bold">{doc.name}</p>
+                              <p className="opacity-60">{doc.fileNumber} • {doc.archiveType}</p>
+                            </button>
+                          ))
+                        }
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500">{selectedBox.processingUnit}</p>
+                  )}
+
+                  <div className="pt-6 border-t border-slate-100">
+                    <button
+                      onClick={() => window.print()}
+                      disabled={labelMode === 'box' ? !selectedBox : !selectedArchiveForLabel}
+                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-100 transition-all"
+                    >
+                      <Printer className="w-5 h-5" /> Cetak Label Sekarang
+                    </button>
+                    <p className="text-[10px] text-slate-400 text-center mt-4">
+                      Label akan dicetak sesuai standar ukuran berkas (75mm x 38mm)
+                    </p>
                   </div>
-                )}
+                </div>
+
+                <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-3xl border border-slate-100 min-h-[400px] relative">
+                  <p className="absolute top-4 left-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preview Cetak</p>
+                  
+                  {labelMode === 'box' && selectedBox ? (
+                    <div id="printable-label" className="bg-white border-2 border-slate-900 p-4 w-[75mm] h-[38mm] flex items-center gap-4 shadow-sm">
+                      <QRCodeSVG
+                        value={JSON.stringify({ id: selectedBox.id, type: 'box', num: selectedBox.boxNumber })}
+                        size={60}
+                        level="H"
+                      />
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-[10px] font-black text-red-600 uppercase mb-0.5 tracking-tighter">Box Arsip DJKI</p>
+                        <h4 className="text-sm font-black text-slate-900 truncate">{selectedBox.boxNumber}</h4>
+                        <p className="text-[8px] font-bold text-slate-500 uppercase truncate mt-0.5">{selectedBox.processingUnit}</p>
+                        <p className="text-[7px] text-slate-400 mt-1 italic truncate">{selectedBox.location}</p>
+                      </div>
+                    </div>
+                  ) : labelMode === 'berkas' && selectedArchiveForLabel ? (
+                    <div id="printable-label" className="bg-white border-2 border-slate-900 p-4 w-[75mm] h-[38mm] flex items-center gap-4 shadow-sm">
+                      <QRCodeSVG
+                        value={JSON.stringify({ id: selectedArchiveForLabel.id, type: 'berkas', num: selectedArchiveForLabel.fileNumber })}
+                        size={60}
+                        level="H"
+                      />
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-[10px] font-black text-blue-600 uppercase mb-0.5 tracking-tighter">Berkas Digital DJKI</p>
+                        <h4 className="text-sm font-black text-slate-900 truncate">{selectedArchiveForLabel.fileNumber}</h4>
+                        <p className="text-[8px] font-bold text-slate-600 truncate">{selectedArchiveForLabel.name}</p>
+                        <div className="flex gap-2 mt-1">
+                          <span className="text-[7px] bg-slate-100 px-1 py-0.5 rounded font-bold uppercase">{selectedArchiveForLabel.archiveCategory}</span>
+                          <span className="text-[7px] bg-slate-100 px-1 py-0.5 rounded font-bold uppercase">{selectedArchiveForLabel.archiveType}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-300">
+                      <Printer className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                      <p className="font-bold">Belum ada data terpilih</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1802,6 +2548,81 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {/* Archive Codes */}
+          {activeTab === 'archive-codes' && (
+            <div className="bg-white rounded-[2.5rem] shadow-sm overflow-hidden border border-slate-200 font-sans">
+              <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-50/50">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-800 tracking-tight">Tabel Klasifikasi Kode Arsip</h3>
+                  <p className="text-sm text-slate-500 font-medium tracking-tight">Berdasarkan PERMENKUMHAM No. 5 Tahun 2022 (Hal. 12-109)</p>
+                </div>
+                <div className="relative w-full md:w-96">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Cari kode, jenis, atau deskripsi..."
+                    value={searchCodeQuery}
+                    onChange={(e) => setSearchCodeQuery(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+                  />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</th>
+                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Kode Utama</th>
+                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Kode Sub</th>
+                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Jenis Arsip</th>
+                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Deskripsi / Penjelasan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredCodes.length > 0 ? (
+                      filteredCodes.map((item, idx) => (
+                        <tr 
+                          key={`${item.mainCode}-${item.subCode}-${idx}`} 
+                          className="hover:bg-blue-50/30 transition-colors group"
+                        >
+                          <td className="px-8 py-5">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              item.category === 'Fasilitatif' 
+                                ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                                : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            }`}>
+                              {item.category}
+                            </span>
+                          </td>
+                          <td className="px-8 py-5">
+                            <span className="font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-sm">
+                              {item.mainCode}
+                            </span>
+                          </td>
+                          <td className="px-8 py-5 font-mono text-sm font-bold text-slate-700">
+                            {item.subCode}
+                          </td>
+                          <td className="px-8 py-5 text-sm font-black text-slate-800 leading-tight">
+                            {item.archiveType}
+                          </td>
+                          <td className="px-8 py-5 text-xs font-medium text-slate-500 leading-relaxed max-w-md">
+                            {item.description}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-8 py-32 text-center text-slate-400">
+                          Tidak ada kode klasifikasi yang ditemukan.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Users Management */}
           {activeTab === 'users' && (
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
@@ -1860,6 +2681,26 @@ const App: React.FC = () => {
             setShowForm(false);
             setSelectedDocForEdit(null);
           }}
+        />
+      )}
+
+      {showLoanForm && (
+        <LoanFormModal
+          archives={documents}
+          onClose={() => setShowLoanForm(false)}
+          onSave={createLoan}
+        />
+      )}
+
+      {showReturnForm && selectedLoanForReturn && (
+        <ReturnFormModal
+          loan={selectedLoanForReturn}
+          archive={documents.find(d => d.id === selectedLoanForReturn.archiveId)}
+          onClose={() => {
+            setShowReturnForm(false);
+            setSelectedLoanForReturn(null);
+          }}
+          onSave={returnLoan}
         />
       )}
     </div>
