@@ -38,6 +38,6 @@ Pihak Administrator bertanggung jawab penuh atas pengelolaan database, pemantaua
 ---
 
 **Dibuat oleh:** 
-### 🌟 caqiestduioproduction
+### 🌟 caqiestudioproduction
 
 *Sistem ini dirancang untuk mendukung transformasi digital dan tata kelola pemerintahan yang bersih serta efisien di lingkungan DJKI.*
