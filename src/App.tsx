@@ -8,12 +8,26 @@ import {
   PieChart, Pie, Cell, Legend, LineChart, Line
 } from 'recharts';
 import * as XLSX from 'xlsx';
-import {
+import { 
   Download, Printer, FileText, Search, Filter, Plus, Eye, Edit, Trash2,
   Lock, Key, LogOut, User as UserIcon, ShieldCheck, Database, LayoutDashboard,
-  QrCode, ScanLine, Archive, X, ListTree, Shield, Building2, Camera, RefreshCw,
+  QrCode, ScanLine, Archive as ArchiveIcon, X, ListTree, Shield, Building2, Camera, RefreshCw,
   Upload, FileSpreadsheet, CheckCircle, AlertCircle, Clock, MapPin, FolderOpen, ArrowLeft, Settings
 } from 'lucide-react';
+import { 
+  collection, 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDoc,
+  query,
+  orderBy,
+  serverTimestamp
+} from 'firebase/firestore';
+import { signInAnonymously, signOut } from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
 
 // ======================================================
 // TIPE DATA
@@ -449,15 +463,25 @@ const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoU
   const [error, setError] = useState('');
   const [isOpening, setIsOpening] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const user = users.find(u => u.username === username);
     if (user && (user.password === password || (!user.password && password === 'admin123'))) {
       setIsOpening(true);
-      // Tunggu animasi vault terbuka selesai (2.5 detik)
-      setTimeout(() => {
-        onLogin(user);
-      }, 2500);
+      
+      try {
+        // Sign in to Firebase anonymously to satisfy security rules
+        await signInAnonymously(auth);
+        
+        // Wait for vault opening animation (2.5s)
+        setTimeout(() => {
+          onLogin(user);
+        }, 2500);
+      } catch (err) {
+        console.error("Firebase Auth Error:", err);
+        setError('Gagal menghubungkan ke layanan keamanan');
+        setIsOpening(false);
+      }
     } else {
       setError('Username atau password salah');
     }
@@ -482,7 +506,7 @@ const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoU
           <Settings className="w-[32rem] h-[32rem] text-blue-400" />
         </motion.div>
         <div className="absolute top-1/4 right-1/4">
-          <Archive className="w-16 h-16 text-blue-500 opacity-20" />
+          <ArchiveIcon className="w-16 h-16 text-blue-500 opacity-20" />
         </div>
         <div className="absolute bottom-1/4 left-1/3">
           <FileText className="w-12 h-12 text-blue-400 opacity-10" />
@@ -1183,7 +1207,7 @@ const ArchiveDetail: React.FC<{
       <div className="p-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex justify-between items-start">
         <div className="flex gap-6">
           <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
-            <Archive className="w-12 h-12 text-white" />
+            <ArchiveIcon className="w-12 h-12 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -1500,7 +1524,7 @@ const ReturnFormModal: React.FC<{
         <div className="p-8 space-y-6">
           <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-4">
              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
-                <Archive className="w-6 h-6" />
+                <ArchiveIcon className="w-6 h-6" />
              </div>
              <div>
                 <p className="text-[10px] font-black text-blue-400 uppercase mb-0.5">Arsip Dipinjam</p>
@@ -1769,53 +1793,29 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [webSettings, setWebSettings] = useState(() => {
-    const saved = localStorage.getItem('djki_settings');
-    return saved ? JSON.parse(saved) : {
-      siteName: 'Portal Arsip DJKI',
-      department: 'Direktorat Jenderal Kekayaan Intelektual',
-      maintenanceMode: false,
-      logoUrl: 'https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95',
-      theme: 'system',
-      autoBackup: true,
-      retentionPolicy: 'Permanen',
-      ocrEnabled: true,
-      maxUploadSize: '10MB',
-      sessionTimeout: '60 Menit'
-    };
+  const [webSettings, setWebSettings] = useState<any>({
+    siteName: 'Portal Arsip DJKI',
+    department: 'Direktorat Jenderal Kekayaan Intelektual',
+    maintenanceMode: false,
+    logoUrl: 'https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95',
+    theme: 'system',
+    autoBackup: true,
+    retentionPolicy: 'Permanen',
+    ocrEnabled: true,
+    maxUploadSize: '10MB',
+    sessionTimeout: '60 Menit'
   });
-  const [documents, setDocuments] = useState<Archive[]>(() => {
-    const saved = localStorage.getItem('djki_docs');
-    return saved ? JSON.parse(saved) : INITIAL_DOCS;
-  });
-  const [boxes, setBoxes] = useState<ArchiveBox[]>(() => {
-    const saved = localStorage.getItem('djki_boxes');
-    return saved ? JSON.parse(saved) : INITIAL_BOXES;
-  });
+  const [documents, setDocuments] = useState<Archive[]>([]);
+  const [boxes, setBoxes] = useState<ArchiveBox[]>([]);
   const [selectedBox, setSelectedBox] = useState<ArchiveBox | null>(null);
   const [selectedArchiveForLabel, setSelectedArchiveForLabel] = useState<Archive | null>(null);
   const [labelMode, setLabelMode] = useState<'box' | 'berkas'>('box');
   const [searchLabel, setSearchLabel] = useState('');
-  const [units, setUnits] = useState<string[]>(() => {
-    const saved = localStorage.getItem('djki_units');
-    return saved ? JSON.parse(saved) : DJKI_UNITS;
-  });
-  const [categories, setCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('djki_categories');
-    return saved ? JSON.parse(saved) : ['Aktif', 'Inaktif', 'Statis', 'Vital'];
-  });
-  const [classifications, setClassifications] = useState<string[]>(() => {
-    const saved = localStorage.getItem('djki_classifications');
-    return saved ? JSON.parse(saved) : ['Terbuka', 'Terbatas', 'Rahasia'];
-  });
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('djki_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
-  });
-  const [loans, setLoans] = useState<LoanRecord[]>(() => {
-    const saved = localStorage.getItem('djki_loans');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [units, setUnits] = useState<string[]>(DJKI_UNITS);
+  const [categories, setCategories] = useState<string[]>(['Aktif', 'Inaktif', 'Statis', 'Vital']);
+  const [classifications, setClassifications] = useState<string[]>(['Terbuka', 'Terbatas', 'Rahasia']);
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [loans, setLoans] = useState<LoanRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Semua');
   const [filterLocation, setFilterLocation] = useState('Semua');
@@ -1850,38 +1850,71 @@ const App: React.FC = () => {
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
-  // Persistence effects
+  // Firestore synchronization
   useEffect(() => {
-    localStorage.setItem('djki_settings', JSON.stringify(webSettings));
-  }, [webSettings]);
+    if (!isLoggedIn) return;
 
-  useEffect(() => {
-    localStorage.setItem('djki_docs', JSON.stringify(documents));
-  }, [documents]);
+    const unsubDocs = onSnapshot(collection(db, 'documents'), (snapshot) => {
+      const docsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Archive));
+      setDocuments(docsData.length > 0 ? docsData : INITIAL_DOCS);
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'documents'));
 
-  useEffect(() => {
-    localStorage.setItem('djki_boxes', JSON.stringify(boxes));
-  }, [boxes]);
+    const unsubBoxes = onSnapshot(collection(db, 'boxes'), (snapshot) => {
+      const boxesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ArchiveBox));
+      setBoxes(boxesData.length > 0 ? boxesData : INITIAL_BOXES);
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'boxes'));
 
-  useEffect(() => {
-    localStorage.setItem('djki_units', JSON.stringify(units));
-  }, [units]);
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const usersData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
+      setUsers(usersData.length > 0 ? usersData : INITIAL_USERS);
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'users'));
 
-  useEffect(() => {
-    localStorage.setItem('djki_categories', JSON.stringify(categories));
-  }, [categories]);
+    const unsubLoans = onSnapshot(collection(db, 'loans'), (snapshot) => {
+      const loansData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as LoanRecord));
+      setLoans(loansData);
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'loans'));
 
-  useEffect(() => {
-    localStorage.setItem('djki_classifications', JSON.stringify(classifications));
-  }, [classifications]);
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'config'), (snapshot) => {
+      if (snapshot.exists()) setWebSettings(snapshot.data());
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/config'));
 
-  useEffect(() => {
-    localStorage.setItem('djki_users', JSON.stringify(users));
-  }, [users]);
+    const unsubUnits = onSnapshot(doc(db, 'settings', 'units'), (snapshot) => {
+      if (snapshot.exists()) setUnits(snapshot.data().items);
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/units'));
 
+    const unsubCategories = onSnapshot(doc(db, 'settings', 'categories'), (snapshot) => {
+      if (snapshot.exists()) setCategories(snapshot.data().items);
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/categories'));
+
+    const unsubClassifications = onSnapshot(doc(db, 'settings', 'classifications'), (snapshot) => {
+      if (snapshot.exists()) setClassifications(snapshot.data().items);
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/classifications'));
+
+    return () => {
+      unsubDocs();
+      unsubBoxes();
+      unsubUsers();
+      unsubLoans();
+      unsubSettings();
+      unsubUnits();
+      unsubCategories();
+      unsubClassifications();
+    };
+  }, [isLoggedIn]);
+
+  // Update cloud settings
   useEffect(() => {
-    localStorage.setItem('djki_loans', JSON.stringify(loans));
-  }, [loans]);
+    if (isLoggedIn && currentUser?.role === 'SUPERADMIN') {
+      const updateSettings = async () => {
+        try {
+          await setDoc(doc(db, 'settings', 'config'), webSettings);
+        } catch (err) {
+          console.error("Failed to sync settings:", err);
+        }
+      };
+      updateSettings();
+    }
+  }, [webSettings, isLoggedIn, currentUser]);
 
   // Update clock every second
   useEffect(() => {
@@ -1956,28 +1989,39 @@ const App: React.FC = () => {
   };
 
   // Handle logout
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Firebase Signout Error:", err);
+    }
     setCurrentUser(null);
     setIsLoggedIn(false);
     setActiveTab('dashboard');
   };
 
   // Save archive
-  const saveArchive = (archive: Archive) => {
-    const exist = documents.find(d => d.id === archive.id);
-    if (exist) {
-      setDocuments(documents.map(d => d.id === archive.id ? archive : d));
-    } else {
-      setDocuments([...documents, archive]);
+  const saveArchive = async (archive: Archive) => {
+    try {
+      await setDoc(doc(db, 'documents', archive.id), {
+        ...archive,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      setShowForm(false);
+      setSelectedDocForEdit(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `documents/${archive.id}`);
     }
-    setShowForm(false);
-    setSelectedDocForEdit(null);
   };
 
   // Delete archive
-  const deleteArchive = (id: string) => {
+  const deleteArchive = async (id: string) => {
     if (window.confirm('Hapus arsip ini?')) {
-      setDocuments(documents.filter(d => d.id !== id));
+      try {
+        await deleteDoc(doc(db, 'documents', id));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `documents/${id}`);
+      }
     }
   };
 
@@ -2074,9 +2118,10 @@ const App: React.FC = () => {
   }, [activeTab, isScanning, selectedCameraId]);
 
   // Loan functions
-  const createLoan = (archiveId: string, borrowerName: string, borrowerNip: string, borrowerUnit: string, notes: string) => {
+  const createLoan = async (archiveId: string, borrowerName: string, borrowerNip: string, borrowerUnit: string, notes: string) => {
+    const loanId = crypto.randomUUID();
     const loan: LoanRecord = {
-      id: crypto.randomUUID(),
+      id: loanId,
       archiveId,
       borrowerName,
       borrowerNip,
@@ -2085,119 +2130,175 @@ const App: React.FC = () => {
       status: 'Dipinjam',
       notes
     };
-    setLoans([loan, ...loans]);
-    setShowLoanForm(false);
+    try {
+      await setDoc(doc(db, 'loans', loanId), loan);
+      setShowLoanForm(false);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'loans');
+    }
   };
 
-  const returnLoan = (loanId: string, notes: string) => {
-    setLoans(loans.map(l => 
-      l.id === loanId 
-        ? { ...l, status: 'Dikembalikan', returnDate: new Date().toISOString(), notes: `${l.notes}\n\n[Kembali]: ${notes}` }
-        : l
-    ));
-    setShowReturnForm(false);
-    setSelectedLoanForReturn(null);
+  const returnLoan = async (loanId: string, notes: string) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (!loan) return;
+    
+    try {
+      await updateDoc(doc(db, 'loans', loanId), {
+        status: 'Dikembalikan',
+        returnDate: new Date().toISOString(),
+        notes: `${loan.notes}\n\n[Kembali]: ${notes}`
+      });
+      setShowReturnForm(false);
+      setSelectedLoanForReturn(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `loans/${loanId}`);
+    }
   };
 
   // Unit CRUD
-  const saveUnit = (oldName: string | null, newName: string) => {
+  const saveUnit = async (oldName: string | null, newName: string) => {
     if (!newName.trim()) return;
+    let newItems = [...units];
     if (oldName) {
-      setUnits(units.map(u => u === oldName ? newName : u));
-      setDocuments(documents.map(d => d.processingUnit === oldName ? { ...d, processingUnit: newName } : d));
+      newItems = newItems.map(u => u === oldName ? newName : u);
+      // Update linked docs unit
+      documents.filter(d => d.processingUnit === oldName).forEach(async (d) => {
+        try {
+          await updateDoc(doc(db, 'documents', d.id), { processingUnit: newName });
+        } catch (e) {}
+      });
     } else {
       if (units.includes(newName)) {
         alert('Unit sudah ada');
         return;
       }
-      setUnits([...units, newName]);
+      newItems.push(newName);
     }
-    setShowUnitForm(false);
-    setSelectedUnitForEdit(null);
+    
+    try {
+      await setDoc(doc(db, 'settings', 'units'), { items: newItems });
+      setShowUnitForm(false);
+      setSelectedUnitForEdit(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'settings/units');
+    }
   };
 
-  const deleteUnit = (unitName: string) => {
+  const deleteUnit = async (unitName: string) => {
     const hasArchives = documents.some(d => d.processingUnit === unitName);
     if (hasArchives) {
       alert('Tidak dapat menghapus unit yang masih memiliki arsip. Pindahkan arsip terlebih dahulu.');
       return;
     }
     if (window.confirm(`Hapus unit ${unitName}?`)) {
-      setUnits(units.filter(u => u !== unitName));
+      try {
+        await setDoc(doc(db, 'settings', 'units'), { items: units.filter(u => u !== unitName) });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'settings/units');
+      }
     }
   };
 
   // Category CRUD
-  const saveCategory = (oldName: string | null, newName: string) => {
+  const saveCategory = async (oldName: string | null, newName: string) => {
     if (!newName.trim()) return;
+    let newItems = [...categories];
     if (oldName) {
-      setCategories(categories.map(c => c === oldName ? newName : c));
+      newItems = newItems.map(c => c === oldName ? newName : c);
     } else {
       if (categories.includes(newName)) {
         alert('Kategori sudah ada');
         return;
       }
-      setCategories([...categories, newName]);
+      newItems.push(newName);
     }
-    setShowCategoryForm(false);
-    setSelectedCategoryForEdit(null);
+    
+    try {
+      await setDoc(doc(db, 'settings', 'categories'), { items: newItems });
+      setShowCategoryForm(false);
+      setSelectedCategoryForEdit(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'settings/categories');
+    }
   };
 
-  const deleteCategory = (catName: string) => {
+  const deleteCategory = async (catName: string) => {
     if (window.confirm(`Hapus kategori ${catName}?`)) {
-      setCategories(categories.filter(c => c !== catName));
+      try {
+        await setDoc(doc(db, 'settings', 'categories'), { items: categories.filter(c => c !== catName) });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'settings/categories');
+      }
     }
   };
 
   // Classification CRUD
-  const saveClassification = (oldName: string | null, newName: string) => {
+  const saveClassification = async (oldName: string | null, newName: string) => {
     if (!newName.trim()) return;
+    let newItems = [...classifications];
     if (oldName) {
-      setClassifications(classifications.map(c => c === oldName ? newName : c));
+      newItems = newItems.map(c => c === oldName ? newName : c);
     } else {
       if (classifications.includes(newName)) {
         alert('Klasifikasi sudah ada');
         return;
       }
-      setClassifications([...classifications, newName]);
+      newItems.push(newName);
     }
-    setShowClassificationForm(false);
-    setSelectedClassificationForEdit(null);
+    
+    try {
+      await setDoc(doc(db, 'settings', 'classifications'), { items: newItems });
+      setShowClassificationForm(false);
+      setSelectedClassificationForEdit(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'settings/classifications');
+    }
   };
 
-  const deleteClassification = (clsName: string) => {
+  const deleteClassification = async (clsName: string) => {
     if (window.confirm(`Hapus klasifikasi ${clsName}?`)) {
-      setClassifications(classifications.filter(c => c !== clsName));
+      try {
+        await setDoc(doc(db, 'settings', 'classifications'), { items: classifications.filter(c => c !== clsName) });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'settings/classifications');
+      }
     }
   };
 
   // User CRUD
-  const saveUser = (user: User) => {
-    const exist = users.find(u => u.id === user.id);
-    if (exist) {
-      setUsers(users.map(u => u.id === user.id ? user : u));
-    } else {
-      setUsers([...users, user]);
+  const saveUser = async (user: User) => {
+    try {
+      await setDoc(doc(db, 'users', user.id), user, { merge: true });
+      setShowUserForm(false);
+      setSelectedUserForEdit(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${user.id}`);
     }
-    setShowUserForm(false);
-    setSelectedUserForEdit(null);
   };
 
-  const deleteUser = (id: string) => {
+  const deleteUser = async (id: string) => {
     if (id === currentUser?.id) {
       alert('Anda tidak dapat menghapus akun Anda sendiri');
       return;
     }
     if (window.confirm('Hapus pengguna ini?')) {
-      setUsers(users.filter(u => u.id !== id));
+      try {
+        await deleteDoc(doc(db, 'users', id));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `users/${id}`);
+      }
     }
   };
 
-  const changeUserPassword = (id: string, newPass: string) => {
-    setUsers(users.map(u => u.id === id ? { ...u, password: newPass } : u));
-    setShowChangePassForm(false);
-    setSelectedUserForPass(null);
-    alert('Password berhasil diperbarui');
+  const changeUserPassword = async (id: string, newPass: string) => {
+    try {
+      await updateDoc(doc(db, 'users', id), { password: newPass });
+      setShowChangePassForm(false);
+      setSelectedUserForPass(null);
+      alert('Password berhasil diperbarui');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${id}`);
+    }
   };
   // Vault access
   const accessVault = () => {
@@ -2927,7 +3028,7 @@ const App: React.FC = () => {
                             <td className="px-8 py-5">
                               <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
-                                   <Archive className="w-5 h-5" />
+                                   <ArchiveIcon className="w-5 h-5" />
                                 </div>
                                 <div>
                                   <p className="text-sm font-black text-slate-800 leading-tight mb-0.5">{archive?.name || 'Arsip Dihapus'}</p>

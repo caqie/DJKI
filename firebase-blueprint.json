@@ -1,0 +1,137 @@
+{
+  "entities": {
+    "Archive": {
+      "title": "Archive Document",
+      "description": "Information about a digital archive document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "code": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string" },
+        "retention": { "type": "string" },
+        "unit": { "type": "string" },
+        "status": { "type": "string" },
+        "qrCode": { "type": "string" },
+        "location": { "type": "string" },
+        "boxId": { "type": "string" },
+        "classification": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "code", "category", "date"]
+    },
+    "ArchiveBox": {
+      "title": "Archive Box",
+      "description": "Represents a physical box containing archives",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "location": { "type": "string" },
+        "capacity": { "type": "number" },
+        "unit": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "code"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Application user account information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "avatar": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "username", "role"]
+    },
+    "LoanRecord": {
+      "title": "Loan Record",
+      "description": "History of archive lending",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "archiveId": { "type": "string" },
+        "archiveTitle": { "type": "string" },
+        "borrowerName": { "type": "string" },
+        "loanDate": { "type": "string" },
+        "returnDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "archiveId", "borrowerName", "loanDate"]
+    },
+    "WebSettings": {
+      "title": "Web Settings",
+      "description": "Global application configuration",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string" },
+        "department": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" },
+        "logoUrl": { "type": "string" },
+        "theme": { "type": "string" },
+        "autoBackup": { "type": "boolean" },
+        "retentionPolicy": { "type": "string" },
+        "ocrEnabled": { "type": "boolean" },
+        "maxUploadSize": { "type": "string" },
+        "sessionTimeout": { "type": "string" }
+      }
+    },
+    "ConfigList": {
+      "title": "Config List",
+      "description": "Simple list of strings for configuration (units, categories, etc)",
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/documents/{docId}": {
+      "schema": "Archive",
+      "description": "List of archive documents"
+    },
+    "/boxes/{boxId}": {
+      "schema": "ArchiveBox",
+      "description": "List of archive boxes"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Application users"
+    },
+    "/loans/{loanId}": {
+      "schema": "LoanRecord",
+      "description": "Archive loan records"
+    },
+    "/settings/config": {
+      "schema": "WebSettings",
+      "description": "Global system settings"
+    },
+    "/settings/units": {
+      "schema": "ConfigList",
+      "description": "Available work units"
+    },
+    "/settings/categories": {
+      "schema": "ConfigList",
+      "description": "Archive categories"
+    },
+    "/settings/classifications": {
+      "schema": "ConfigList",
+      "description": "Archive classification levels"
+    }
+  }
+}
