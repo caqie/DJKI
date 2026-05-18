@@ -1,20 +1,43 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Vault Arsip DJKI - Sistem Manajemen Arsip Digital
 
-# Run and deploy your AI Studio app
+Vault Arsip DJKI adalah solusi manajemen arsip digital terenkripsi yang dirancang khusus untuk **Direktorat Jenderal Kekayaan Intelektual (DJKI)**. Sistem ini mempermudah tata kelola dokumen substantif (Paten, Hak Cipta, Merek, Desain Industri) maupun dokumen fasilitatif dengan standar keamanan tinggi.
 
-This contains everything you need to run your app locally.
+## 🚀 Fitur Utama
 
-View your app in AI Studio: https://ai.studio/apps/55d4a7d5-f561-4ec2-92e0-a1c8d2f5188d
+*   **Identitas Substantif Terpadu**: Form input metadata yang menyesuaikan diri berdasarkan klasifikasi (Pencipta/Pemegang Hak untuk Cipta, Inventor/Pemohon untuk Paten, dll).
+*   **Vault Rahasia**: Penyimpanan dokumen dengan enkripsi level tinggi untuk data-data rahasia negara.
+*   **Pencarian Cerdas**: Kemampuan pencarian cepat ke seluruh field metadata dokumen.
+*   **Manajemen Box & Lokasi**: Pelacakan fisik arsip hingga ke nomor box dan item untuk mempermudah temu balik arsip fisik.
+*   **Sistem Peminjaman**: Manajemen sirkulasi arsip yang terintegrasi.
+*   **Pengaturan Sistem Fleksibel**: Kustomisasi logo instansi, nama situs, dan kebijakan sistem langsung dari panel admin.
+*   **Cetak Label Barcode**: Otomatisasi pembuatan label arsip untuk standarisasi penomoran fisik.
 
-## Run Locally
+## 📋 Cara Penggunaan
 
-**Prerequisites:**  Node.js
+### 1. Akses & Login
+*   Masuk ke aplikasi melalui Portal Login.
+*   Gunakan akun Administrator untuk mengakses seluruh fitur termasuk Dashboard dan Pengaturan.
 
+### 2. Registrasi Arsip Baru
+*   Klik menu **"Daftar Arsip"** lalu pilih **"Tambah Arsip"**.
+*   **Penting**: Pilih **Kode Klasifikasi** terlebih dahulu. Formulir akan otomatis menyesuaikan field (misal: memunculkan field 'Inventor' jika Anda memilih klasifikasi Paten).
+*   Lengkapi metadata seperti Nomor Dokumen, Tanggal, dan Keterangan.
+*   Tentukan masa retensi dan klasifikasi keamanan (Terbuka/Terbatas/Rahasia).
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 3. Pencarian & Temu Balik
+*   Gunakan menu **"Pencarian"** untuk menemukan dokumen berdasarkan nama pemohon, nomor dokumen, atau kata kunci lainnya.
+*   Lihat detail arsip untuk mengetahui lokasi fisik (Nomor Box dan Nomor Item).
+
+### 4. Pengaturan Logo & Instansi
+*   Buka menu **"Pengaturan"**.
+*   Anda dapat mengubah **Nama Aplikasi**, **Logo Instansi** (dengan fitur preview berkilau/shimmer), dan konfigurasi teknis lainnya.
+
+## 🛠️ Administrasi Sistem
+Pihak Administrator bertanggung jawab penuh atas pengelolaan database, pemantauan log audit, dan konfigurasi teknologi OCR sesuai kebijakan retensi arsip yang berlaku.
+
+---
+
+**Dibuat oleh:** 
+### 🌟 caqiestduioproduction
+
+*Sistem ini dirancang untuk mendukung transformasi digital dan tata kelola pemerintahan yang bersih serta efisien di lingkungan DJKI.*
