@@ -31,7 +31,11 @@ export interface Archive {
   classificationCode: string;
   documentForm: DocumentForm;
   name: string;
-  nipOrApplicant: string;
+  applicant?: string;
+  inventor?: string;
+  creator?: string;
+  copyrightHolder?: string;
+  consultant?: string;
   archiveType: string;
   archiveDescription: string;
   documentNumber: string;
@@ -126,7 +130,11 @@ const EMPTY_ARCHIVE: Archive = {
   classificationCode: "",
   documentForm: "Asli",
   name: "",
-  nipOrApplicant: "",
+  applicant: "",
+  inventor: "",
+  creator: "",
+  copyrightHolder: "",
+  consultant: "",
   archiveType: "",
   archiveDescription: "",
   documentNumber: "",
@@ -258,15 +266,45 @@ const CLASSIFICATION_CODES: ClassificationCode[] = [
   { mainCode: "GR", subCode: "03.01", archiveType: "Pendeportasian", description: "Dokumen tindakan administratif keimigrasian berupa deportasi.", category: "Substantif" },
   { mainCode: "GR", subCode: "04.01", archiveType: "Intelijen Keimigrasian", description: "Dokumen penyelidikan dan intelijen keimigrasian.", category: "Substantif" },
 
-  { mainCode: "KI", subCode: "01.01.01", archiveType: "Pendaftaran Hak Cipta", description: "Permohonan pencatatan ciptaan, buku, seni, musik, dll.", category: "Substantif" },
-  { mainCode: "KI", subCode: "01.02.04", archiveType: "Pengalihan Hak Cipta", description: "Pencatatan pengalihan hak ekonomi atas ciptaan.", category: "Substantif" },
-  { mainCode: "KI", subCode: "05.01.01", archiveType: "Permohonan Paten", description: "Permohonan paten/paten sederhana dari pendaftaran hingga pemberian.", category: "Substantif" },
-  { mainCode: "KI", subCode: "05.04.01", archiveType: "Pemeliharaan Paten", description: "Dokumen pembayaran biaya tahunan paten.", category: "Substantif" },
-  { mainCode: "KI", subCode: "06.01.01", archiveType: "Pendaftaran Merek", description: "Permohonan pendaftaran merek dagang, jasa, and kolektif.", category: "Substantif" },
-  { mainCode: "KI", subCode: "06.01.10", archiveType: "Sertifikat Merek", description: "Bukti otentik pendaftaran merek terdaftar.", category: "Substantif" },
-  { mainCode: "KI", subCode: "06.05.01", archiveType: "Penghapusan Merek", description: "Proses pembatalan atau penghapusan merek terdaftar.", category: "Substantif" },
-  { mainCode: "KI", subCode: "06.09.01", archiveType: "Perpanjangan Merek", description: "Berkas perpanjangan masa perlindungan merek (10 tahun).", category: "Substantif" },
-  { mainCode: "KI", subCode: "08.01", archiveType: "Penyidikan (PPNS)", description: "BAP and berkas perkara tindak pidana kekayaan intelektual.", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.01", archiveType: "Proses Pencatatan Ciptaan", description: "Dokumen proses penyelesaian permohonan pencatatan ciptaan.", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.01.01", archiveType: "Kekurangan Persyaratan Ciptaan", description: "Pemberitahuan kekurangan kelengkapan permohonan hak cipta.", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.02", archiveType: "Pasca Pencatatan Ciptaan", description: "Dokumen setelah ciptaan dicatatkan (perubahan, pengalihan, dll).", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.02.04", archiveType: "Pengalihan Hak Cipta", description: "Pencatatan pengalihan hak atas ciptaan.", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.02.05", archiveType: "Lisensi Ciptaan", description: "Pencatatan perjanjian lisensi hak cipta.", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.03", archiveType: "Pelayanan Hukum Cipta", description: "Pertimbangan, pendapat hukum, dan bantuan hukum perkara hak cipta.", category: "Substantif" },
+  { mainCode: "KI", subCode: "01.04", archiveType: "Lembaga Manajemen Kolektif", description: "Dokumen ijin operasional dan evaluasi LMK.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "02.01", archiveType: "Pendaftaran Desain Industri", description: "Proses penyelesaian permohonan pendaftaran desain industri.", category: "Substantif" },
+  { mainCode: "KI", subCode: "02.01.12", archiveType: "Penolakan Desain Industri", description: "Keputusan penolakan permohonan desain industri.", category: "Substantif" },
+  { mainCode: "KI", subCode: "02.03", archiveType: "Pasca Pendaftaran Desain Industri", description: "Perubahan data, pengalihan hak, lisensi desain industri.", category: "Substantif" },
+  { mainCode: "KI", subCode: "02.04", archiveType: "Pelayanan Hukum Desain Industri", description: "Pendapat hukum dan bantuan hukum perkara desain industri.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "03.01", archiveType: "Pendaftaran DTLST", description: "Proses penyelesaian permohonan pendaftaran Desain Tata Letak Sirkuit Terpadu.", category: "Substantif" },
+  { mainCode: "KI", subCode: "03.02", archiveType: "Sertifikat/Kutipan DTLST", description: "Sertifikat dan kutipan daftar umum DTLST.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "04.01", archiveType: "Rahasia Dagang", description: "Pencatatan lisensi dan dokumen rahasia dagang.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "05.01", archiveType: "Pendaftaran Paten", description: "Proses penyelesaian permohonan pendaftaran paten.", category: "Substantif" },
+  { mainCode: "KI", subCode: "05.01.08", archiveType: "Pemeriksaan Substantif Paten", description: "Dokumen hasil pemeriksaan substantif paten tahap awal/lanjut.", category: "Substantif" },
+  { mainCode: "KI", subCode: "05.02", archiveType: "Sertifikat Paten", description: "Penerbitan dan pengambilan sertifikat paten.", category: "Substantif" },
+  { mainCode: "KI", subCode: "05.04", archiveType: "Pemeliharaan Paten", description: "Pemenuhan kewajiban pembayaran biaya pemeliharaan paten.", category: "Substantif" },
+  { mainCode: "KI", subCode: "05.11", archiveType: "Komisi Banding Paten", description: "Dokumen proses banding atas penolakan paten.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "06.01", archiveType: "Pendaftaran Merek", description: "Proses penyelesaian permohonan pendaftaran merek.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.01.06", archiveType: "Publikasi Merek", description: "Pengumuman/Berita Resmi Merek.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.01.09", archiveType: "Pemeriksaan Substantif Merek", description: "Laporan hasil pemeriksaan substantif merek.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.02", archiveType: "Sertifikat Merek", description: "Penerbitan sertifikat dan kutipan merek.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.09", archiveType: "Perpanjangan Merek", description: "Proses perpanjangan masa perlindungan merek.", category: "Substantif" },
+  { mainCode: "KI", subCode: "06.12", archiveType: "Komisi Banding Merek", description: "Permohonan banding terhadap penolakan merek.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "07.01", archiveType: "Pendaftaran Indikasi Geografis", description: "Proses penyelesaian permohonan pendaftaran IG.", category: "Substantif" },
+  { mainCode: "KI", subCode: "07.05", archiveType: "Pengawasan IG", description: "Dokumen pengawasan indikasi geografis terdaftar.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "08.01", archiveType: "Penyidikan (PPNS)", description: "Pemberkasan perkara tindak pidana kekayaan intelektual.", category: "Substantif" },
+  { mainCode: "KI", subCode: "08.01.01", archiveType: "Laporan Kejadian KI", description: "Laporan kejadian/pengaduan dugaan tindak pidana KI.", category: "Substantif" },
+  { mainCode: "KI", subCode: "08.03", archiveType: "Penyelesaian Sengketa Alternatif", description: "Mediasi dan penyelesaian sengketa KI di luar pengadilan.", category: "Substantif" },
+
+  { mainCode: "KI", subCode: "09.02", archiveType: "KI Komunal (KIK)", description: "Inventarisasi Kekayaan Intelektual Komunal (EBT, PTE, KSD).", category: "Substantif" },
 
   { mainCode: "HA", subCode: "01.01", archiveType: "Yankomas", description: "Penanganan dugaan pelanggaran HAM yang disampaikan masyarakat.", category: "Substantif" },
   { mainCode: "HA", subCode: "02.01", archiveType: "Kerja Sama HAM", description: "Dokumen kerja sama internasional di bidang HAM.", category: "Substantif" },
@@ -294,11 +332,11 @@ const INITIAL_DOCS: Archive[] = [
     archiveItemNumber: 'ITEM-01',
     boxNumber: 'BOX-2024-001',
     archiveCategory: 'Aktif',
-    classificationCode: 'HK.01.01',
+    classificationCode: 'KI.06.01',
     documentForm: 'Asli',
     name: 'PT Kenangan Abadi',
-    nipOrApplicant: 'Kopi Kenangan',
-    archiveType: 'Sertifikat',
+    applicant: 'PT Kenangan Abadi',
+    archiveType: 'Pendaftaran Merek',
     archiveDescription: 'Sertifikat Merek Kopi Kenangan Kelas 30',
     documentNumber: 'IDM000987654',
     documentDate: '2023-11-12',
@@ -322,11 +360,12 @@ const INITIAL_DOCS: Archive[] = [
     archiveItemNumber: 'ITEM-02',
     boxNumber: 'BOX-2024-001',
     archiveCategory: 'Vital',
-    classificationCode: 'PT.02.03',
+    classificationCode: 'KI.05.01',
     documentForm: 'Salinan',
     name: 'Universitas Indonesia',
-    nipOrApplicant: 'UI Research',
-    archiveType: 'Permohonan',
+    applicant: 'Universitas Indonesia',
+    inventor: 'UI Research',
+    archiveType: 'Pendaftaran Paten',
     archiveDescription: 'Permohonan Paten Sistem Filtrasi Limbah Cair',
     documentNumber: 'P00202301234',
     documentDate: '2024-01-20',
@@ -349,11 +388,10 @@ const INITIAL_DOCS: Archive[] = [
     archiveItemNumber: 'ITEM-03',
     boxNumber: 'BOX-2024-002',
     archiveCategory: 'Statis',
-    classificationCode: 'HC.03.01',
+    classificationCode: 'KP.02.01',
     documentForm: 'Scan',
     name: 'Budi Santoso',
-    nipOrApplicant: 'Budi S',
-    archiveType: 'SK',
+    archiveType: 'Penerimaan Pegawai',
     archiveDescription: 'SK Pengangkatan Pegawai DJKI 2024',
     documentNumber: 'SK-2024-001',
     documentDate: '2024-02-15',
@@ -401,7 +439,7 @@ const INITIAL_USERS: User[] = [
 // ======================================================
 // LOGIN COMPONENT
 // ======================================================
-const VaultLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
+const VaultLogin: React.FC<{ onLogin: (user: User) => void; logoUrl: string }> = ({ onLogin, logoUrl }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -424,8 +462,20 @@ const VaultLogin: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) =>
         className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <ShieldCheck className="w-10 h-10 text-white" />
+          <div className="flex justify-center mb-6">
+            <motion.div 
+              whileTap={{ scale: 0.95 }}
+              className="shine-effect cursor-pointer p-4 bg-white rounded-3xl border-2 border-slate-100 shadow-sm hover:border-blue-100 transition-all"
+            >
+              <img 
+                src={logoUrl} 
+                alt="Logo DJKI" 
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/identicon/svg?seed=DJKI';
+                }}
+                className="h-20 w-auto object-contain relative z-10"
+              />
+            </motion.div>
           </div>
           <h1 className="text-2xl font-black text-slate-800">Portal Arsip DJKI</h1>
           <p className="text-slate-500 text-sm">Sistem Arsip Digital Terenkripsi</p>
@@ -488,12 +538,12 @@ const Sidebar: React.FC<{
   setIsCollapsed: (collapsed: boolean) => void;
   user: User | null;
   onLogout: () => void;
-}> = ({ activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed, user, onLogout }) => {
+  logoUrl: string;
+}> = ({ activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed, user, onLogout, logoUrl }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'archive-list', label: 'Daftar Arsip', icon: Archive },
     { id: 'search', label: 'Pencarian', icon: Search },
-    { id: 'upload', label: 'Upload Arsip', icon: Upload },
     { id: 'loans', label: 'Peminjaman', icon: FileText },
     { id: 'vault', label: 'Vault Rahasia', icon: Lock },
     { id: 'labels', label: 'Cetak Label', icon: Printer },
@@ -526,12 +576,22 @@ const Sidebar: React.FC<{
         <div className="p-6">
           <div className="flex items-center justify-between mb-8 overflow-hidden">
             <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="font-black text-lg truncate">Portal Arsip DJKI</h1>
-                <p className="text-[10px] text-slate-400">Arsip Digital</p>
+              <motion.div 
+                whileTap={{ scale: 0.9 }}
+                className="shine-effect w-12 h-12 bg-white rounded-xl flex items-center justify-center shrink-0 p-2 border border-blue-200/50 cursor-pointer"
+              >
+                <img 
+                  src={logoUrl} 
+                  alt="DJKI" 
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/identicon/svg?seed=DJKI';
+                  }}
+                  className="w-full h-full object-contain relative z-10"
+                />
+              </motion.div>
+              <div className="min-w-[120px]">
+                <h1 className="font-black text-sm tracking-tight leading-none">VAULT ARSIP</h1>
+                <p className="text-[9px] text-blue-400 font-bold tracking-widest mt-1 uppercase">Direktorat Jenderal KI</p>
               </div>
             </div>
             <button 
@@ -768,8 +828,29 @@ const ArchiveForm: React.FC<{
                 Informasi Arsip
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InputField name="name" label="Nama / Pemohon" value={data.name} onChange={handleChange} placeholder="Nama Lengkap" required />
-                <InputField name="nipOrApplicant" label="NIP / Identitas" value={data.nipOrApplicant} onChange={handleChange} placeholder="NIP atau Identitas" />
+                {data.classificationCode.startsWith('KI') ? (
+                  <>
+                    {data.classificationCode.startsWith('KI.05') ? (
+                      <>
+                        <InputField name="applicant" label="Pemohon" value={data.applicant || ''} onChange={handleChange} placeholder="Nama Pemohon Paten" required />
+                        <InputField name="inventor" label="Inventor" value={data.inventor || ''} onChange={handleChange} placeholder="Nama Inventor" required />
+                      </>
+                    ) : data.classificationCode.startsWith('KI.01') ? (
+                      <>
+                        <InputField name="creator" label="Pencipta" value={data.creator || ''} onChange={handleChange} placeholder="Nama Pencipta" required />
+                        <InputField name="copyrightHolder" label="Pemegang Hak Cipta" value={data.copyrightHolder || ''} onChange={handleChange} placeholder="Nama Pemegang Hak Cipta" required />
+                      </>
+                    ) : (data.classificationCode.startsWith('KI.02') || data.classificationCode.startsWith('KI.06')) ? (
+                      <InputField name="applicant" label="Pemohon" value={data.applicant || ''} onChange={handleChange} placeholder="Nama Pemohon" required />
+                    ) : (
+                      <InputField name="applicant" label="Pemohon" value={data.applicant || ''} onChange={handleChange} placeholder="Nama Pemohon" />
+                    )}
+                    <InputField name="consultant" label="Kuasa / Konsultan" value={data.consultant || ''} onChange={handleChange} placeholder="Nama Kuasa atau Konsultan" />
+                  </>
+                ) : (
+                  <InputField name="name" label="Nama / Identitas" value={data.name} onChange={handleChange} placeholder="Nama Lengkap / Identitas" required />
+                )}
+                
                 <InputField name="archiveType" label="Jenis Arsip" value={data.archiveType} onChange={handleChange} placeholder="SK, Sertifikat, dll" required />
                 <InputField name="archiveDescription" label="Keterangan Arsip" value={data.archiveDescription} onChange={handleChange} placeholder="Penjelasan isi arsip" required />
                 <InputField name="documentNumber" label="Nomor Dokumen" value={data.documentNumber} onChange={handleChange} placeholder="No. Surat / Sertifikat" required />
@@ -1028,6 +1109,20 @@ const ArchiveDetail: React.FC<{
             <DetailItem label="Jenis Arsip" value={archive.archiveType} icon={ListTree} />
             <DetailItem label="Bentuk Fisik" value={archive.documentForm} icon={Archive} />
             <DetailItem label="Masa Retensi" value={archive.retentionPeriod} icon={RefreshCw} />
+            
+            {/* KI Specific Details */}
+            {archive.classificationCode.startsWith('KI') && (
+              <>
+                {archive.applicant && <DetailItem label="Pemohon" value={archive.applicant} icon={UserIcon} />}
+                {archive.inventor && <DetailItem label="Inventor" value={archive.inventor} icon={UserIcon} />}
+                {archive.creator && <DetailItem label="Pencipta" value={archive.creator} icon={UserIcon} />}
+                {archive.copyrightHolder && <DetailItem label="Pemegang Hak Cipta" value={archive.copyrightHolder} icon={UserIcon} />}
+                {archive.consultant && <DetailItem label="Kuasa / Konsultan" value={archive.consultant} icon={ShieldCheck} />}
+              </>
+            )}
+            {!archive.classificationCode.startsWith('KI') && archive.name && (
+              <DetailItem label="Nama / Identitas" value={archive.name} icon={UserIcon} />
+            )}
           </div>
 
           <div className="p-6 bg-slate-50 rounded-2xl space-y-4">
@@ -1342,6 +1437,82 @@ const ReturnFormModal: React.FC<{
   );
 };
 
+// ======================================================
+// SHARED COMPONENTS
+// ======================================================
+const ArchiveTable: React.FC<{
+  data: Archive[];
+  onDetail: (doc: Archive) => void;
+  onEdit: (doc: Archive) => void;
+  onDelete: (id: string) => void;
+}> = ({ data, onDetail, onEdit, onDelete }) => (
+  <div className="overflow-x-auto">
+    <table className="w-full">
+      <thead>
+        <tr className="bg-slate-50/50 border-y border-slate-100">
+          <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">No Berkas</th>
+          <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Identitas</th>
+          <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Lokasi Simpan</th>
+          <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</th>
+          <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Aksi</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-50">
+        {data.map((doc) => (
+          <tr key={doc.id} className="hover:bg-blue-50/30 transition-colors group">
+            <td className="px-4 py-4 text-xs font-mono font-bold text-blue-600">{doc.fileNumber}</td>
+            <td className="px-4 py-4 truncate max-w-[200px]">
+              <p className="text-sm font-bold text-slate-700 leading-tight">
+                {doc.classificationCode.startsWith('KI') ? (doc.applicant || doc.creator || doc.name) : doc.name}
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium">{doc.archiveType}</p>
+            </td>
+            <td className="px-4 py-4">
+              <p className="text-xs font-bold text-slate-600">{doc.building}</p>
+              <p className="text-[10px] text-slate-400 font-medium">Lantai {doc.floor} • Box {doc.boxNumber || '-'}</p>
+            </td>
+            <td className="px-4 py-4">
+              <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                doc.archiveCategory === 'Aktif' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                doc.archiveCategory === 'Vital' ? 'bg-red-50 text-red-600 border border-red-100' :
+                doc.archiveCategory === 'Inaktif' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                'bg-slate-50 text-slate-500 border border-slate-100'
+              }`}>
+                {doc.archiveCategory}
+              </span>
+            </td>
+            <td className="px-4 py-4">
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => onDetail(doc)}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                  title="Lihat Detail"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onEdit(doc)}
+                  className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                  title="Ubah Data"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onDelete(doc.id)}
+                  className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                  title="Hapus Permanen"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
 const DetailItem: React.FC<{ label: string; value: string; icon: React.ComponentType<any> }> = ({ label, value, icon: Icon }) => (
   <div className="flex items-start gap-3">
     <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 shrink-0">
@@ -1363,6 +1534,18 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [webSettings, setWebSettings] = useState({
+    siteName: 'Vault Arsip DJKI',
+    department: 'Direktorat Jenderal Kekayaan Intelektual',
+    maintenanceMode: false,
+    logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Logo_DJKI.png',
+    theme: 'system',
+    autoBackup: true,
+    retentionPolicy: 'Permanen',
+    ocrEnabled: true,
+    maxUploadSize: '10MB',
+    sessionTimeout: '60 Menit'
+  });
   const [documents, setDocuments] = useState<Archive[]>(INITIAL_DOCS);
   const [boxes, setBoxes] = useState<ArchiveBox[]>(INITIAL_BOXES);
   const [selectedBox, setSelectedBox] = useState<ArchiveBox | null>(null);
@@ -1419,6 +1602,11 @@ const App: React.FC = () => {
         doc.archiveDescription.toLowerCase().includes(searchStr) || 
         doc.documentNumber.toLowerCase().includes(searchStr) ||
         doc.name.toLowerCase().includes(searchStr) ||
+        (doc.applicant?.toLowerCase().includes(searchStr)) ||
+        (doc.inventor?.toLowerCase().includes(searchStr)) ||
+        (doc.creator?.toLowerCase().includes(searchStr)) ||
+        (doc.copyrightHolder?.toLowerCase().includes(searchStr)) ||
+        (doc.consultant?.toLowerCase().includes(searchStr)) ||
         doc.fileNumber.toLowerCase().includes(searchStr) ||
         doc.processingUnit.toLowerCase().includes(searchStr) ||
         doc.archiveType.toLowerCase().includes(searchStr) ||
@@ -1622,7 +1810,7 @@ const App: React.FC = () => {
 
   // Show login if not logged in
   if (!isLoggedIn) {
-    return <VaultLogin onLogin={handleLogin} />;
+    return <VaultLogin onLogin={handleLogin} logoUrl={webSettings.logoUrl} />;
   }
 
   return (
@@ -1636,6 +1824,7 @@ const App: React.FC = () => {
         setIsCollapsed={setIsSidebarCollapsed}
         user={currentUser}
         onLogout={handleLogout}
+        logoUrl={webSettings.logoUrl}
       />
 
       <main className="flex-1 p-4 lg:p-8 overflow-auto">
@@ -1654,7 +1843,6 @@ const App: React.FC = () => {
                   {activeTab === 'dashboard' && 'Dashboard Analitik'}
                   {activeTab === 'archive-list' && 'Daftar Arsip'}
                   {activeTab === 'search' && 'Pencarian Arsip'}
-                  {activeTab === 'upload' && 'Upload Arsip'}
                   {activeTab === 'loans' && 'Peminjaman Arsip'}
                   {activeTab === 'vault' && 'Vault Rahasia'}
                   {activeTab === 'labels' && 'Cetak Label'}
@@ -1663,7 +1851,7 @@ const App: React.FC = () => {
                   {activeTab === 'reports' && 'Laporan'}
                   {activeTab === 'units' && 'Unit DJKI'}
                   {activeTab === 'users' && 'Pengguna'}
-                  {activeTab === 'settings' && 'Pengaturan'}
+                  {activeTab === 'settings' && 'Pengaturan Jurnal & Sistem'}
                 </h1>
                 <p className="text-slate-500 text-sm">Sistem Manajemen Arsip Digital DJKI</p>
               </div>
@@ -1752,38 +1940,260 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* Upload Arsip Tab */}
-          {activeTab === 'upload' && (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-200 shadow-sm">
-              <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-8">
-                <Upload className="w-10 h-10" />
+          {/* Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column: List of Settings Sections */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* General settings */}
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                      <h3 className="font-black text-slate-800 flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-blue-600" />
+                        Identitas Aplikasi & Instansi
+                      </h3>
+                    </div>
+                    <div className="p-8 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Nama Aplikasi</label>
+                          <input 
+                            type="text" 
+                            value={webSettings.siteName}
+                            onChange={(e) => setWebSettings({...webSettings, siteName: e.target.value})}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Instansi / Departemen</label>
+                          <input 
+                            type="text" 
+                            value={webSettings.department}
+                            onChange={(e) => setWebSettings({...webSettings, department: e.target.value})}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Logo Settings */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Logo Aplikasi & Sidebar</label>
+                        <div className="flex items-center gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                          <motion.div 
+                            whileTap={{ scale: 0.95 }}
+                            className="shine-effect w-24 h-24 bg-white rounded-2xl border-2 border-slate-200 flex items-center justify-center overflow-hidden p-3 shadow-sm cursor-pointer"
+                          >
+                            <img 
+                              src={webSettings.logoUrl} 
+                              alt="Preview Logo" 
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/identicon/svg?seed=DJKI';
+                              }}
+                              className="max-w-full max-h-full object-contain relative z-10" 
+                            />
+                          </motion.div>
+                          <div className="flex-1 space-y-3">
+                            <p className="text-[10px] text-slate-500 font-bold leading-tight">Unggah logo resmi instansi Anda. File PNG transparan sangat disarankan untuk tampilan terbaik.</p>
+                            <div className="flex gap-2">
+                              <input 
+                                type="file" 
+                                id="logo-setting-upload" 
+                                hidden 
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      setWebSettings({...webSettings, logoUrl: ev.target?.result as string});
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                              <label 
+                                htmlFor="logo-setting-upload"
+                                className="px-4 py-2 bg-blue-600 text-white rounded-xl font-black text-[10px] cursor-pointer hover:bg-blue-700 transition-all flex items-center gap-2"
+                              >
+                                <Camera className="w-3 h-3" /> Ganti Logo
+                              </label>
+                              <button 
+                                onClick={() => setWebSettings({...webSettings, logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Logo_DJKI.png'})}
+                                className="px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl font-black text-[10px] hover:bg-slate-50 transition-all"
+                              >
+                                Reset Default
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-4">
+                        <div className="p-2 bg-white rounded-xl shadow-sm text-blue-600">
+                          <AlertCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-blue-800 leading-tight">Perubahan Identitas</p>
+                          <p className="text-[10px] text-blue-600 mt-1">Nama ini akan muncul pada seluruh header laporan, meta-data export, dan identitas browser.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* System Settings */}
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                      <h3 className="font-black text-slate-800 flex items-center gap-2">
+                        <Database className="w-5 h-5 text-indigo-600" />
+                        Konfigurasi Sistem & Database
+                      </h3>
+                    </div>
+                    <div className="p-8 space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                          <div>
+                            <p className="text-sm font-black text-slate-800">Modus Pemeliharaan</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Nonaktifkan akses publik</p>
+                          </div>
+                          <button 
+                            onClick={() => setWebSettings({...webSettings, maintenanceMode: !webSettings.maintenanceMode})}
+                            className={`w-12 h-6 rounded-full transition-all relative ${webSettings.maintenanceMode ? 'bg-red-500' : 'bg-slate-300'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${webSettings.maintenanceMode ? 'left-7' : 'left-1'}`} />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                          <div>
+                            <p className="text-sm font-black text-slate-800">Teknologi OCR AI</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Ekstraksi teks otomatis</p>
+                          </div>
+                          <button 
+                            onClick={() => setWebSettings({...webSettings, ocrEnabled: !webSettings.ocrEnabled})}
+                            className={`w-12 h-6 rounded-full transition-all relative ${webSettings.ocrEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${webSettings.ocrEnabled ? 'left-7' : 'left-1'}`} />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                          <div>
+                            <p className="text-sm font-black text-slate-800">Backup Otomatis</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Cadangkan data harian</p>
+                          </div>
+                          <button 
+                            onClick={() => setWebSettings({...webSettings, autoBackup: !webSettings.autoBackup})}
+                            className={`w-12 h-6 rounded-full transition-all relative ${webSettings.autoBackup ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${webSettings.autoBackup ? 'left-7' : 'left-1'}`} />
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Timeout Sesi</label>
+                          <select 
+                            value={webSettings.sessionTimeout}
+                            onChange={(e) => setWebSettings({...webSettings, sessionTimeout: e.target.value})}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                          >
+                            <option value="15 Menit">15 Menit</option>
+                            <option value="30 Menit">30 Menit</option>
+                            <option value="60 Menit">60 Menit</option>
+                            <option value="Selamanya">Selamanya</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4 pt-4 border-t border-slate-100">
+                        <button className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                          <RefreshCw className="w-4 h-4" /> Re-index OCR Database
+                        </button>
+                        <button className="flex-1 py-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl font-black text-xs hover:bg-red-100 transition-all flex items-center justify-center gap-2">
+                          <Trash2 className="w-4 h-4" /> Reset Semua Data (Caution!)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Information & Visual */}
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-200">
+                    <h4 className="font-black text-xl mb-4 leading-tight">Informasi Versi & Lisensi</h4>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center py-2 border-b border-white/10">
+                        <span className="text-xs font-bold opacity-60">Versi Sistem</span>
+                        <span className="text-xs font-black">v2.4.0-Enterprise</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/10">
+                        <span className="text-xs font-bold opacity-60">Engine OCR</span>
+                        <span className="text-xs font-black">Gemini 1.5 Flash</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/10">
+                        <span className="text-xs font-bold opacity-60">Status Lisensi</span>
+                        <span className="text-[10px] bg-emerald-500 px-2 py-0.5 rounded-full font-black">ACTIVE</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-xs font-bold opacity-60">Terakhir Update</span>
+                        <span className="text-xs font-black">18 Mei 2026</span>
+                      </div>
+                    </div>
+                    <button className="w-full mt-8 py-4 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-2xl font-black text-xs transition-all border border-white/20">
+                      Cek Pembaruan Sistem
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+                    <h4 className="font-black text-slate-800 mb-6">Tema & Visual</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button className="p-4 rounded-2xl border-2 border-blue-500 bg-blue-50 text-blue-600 text-center">
+                        <LayoutDashboard className="w-6 h-6 mx-auto mb-2" />
+                        <p className="text-[10px] font-black uppercase">Standard</p>
+                      </button>
+                      <button className="p-4 rounded-2xl border-2 border-slate-100 hover:border-slate-300 transition-all text-slate-400 text-center">
+                        <div className="w-6 h-6 bg-slate-900 rounded mx-auto mb-2" />
+                        <p className="text-[10px] font-black uppercase">Dark Mode</p>
+                      </button>
+                      <button className="p-4 rounded-2xl border-2 border-slate-100 hover:border-slate-300 transition-all text-slate-400 text-center col-span-2">
+                        <p className="text-[10px] font-black uppercase">Warna Aksen: Biru DJKI</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl">
+                    <div className="flex gap-3 mb-2">
+                       <ShieldCheck className="w-5 h-5 text-amber-600" />
+                       <h5 className="font-black text-amber-800 text-xs">Keamanan Administrator</h5>
+                    </div>
+                    <p className="text-[10px] text-amber-700 font-medium leading-relaxed">Anda sedang mengakses pengaturan sistem sebagai Super Admin. Segala perubahan akan dicatat dalam audit log.</p>
+                  </div>
+                </div>
               </div>
-              <h2 className="text-3xl font-black text-slate-800 mb-2 font-sans tracking-tight">Unggah Berkas Baru</h2>
-              <p className="text-slate-500 mb-10 max-w-sm text-center font-medium leading-relaxed">Digitalisasi arsip fisik Anda dengan sistem penomoran dan metadata terintegrasi DJKI.</p>
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-10 py-5 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-2xl shadow-blue-200 flex items-center gap-3 active:scale-95"
-              >
-                <Plus className="w-5 h-5" /> Mulai Registrasi Arsip
-              </button>
             </div>
           )}
 
-          {/* Archive List / Detail / Search */}
-          {(activeTab === 'archive-list' || activeTab === 'search') && (
+          {/* Detail View (Shared) */}
+          {selectedDocForDetail && (activeTab === 'archive-list' || activeTab === 'search') && (
+            <ArchiveDetail 
+              archive={selectedDocForDetail} 
+              onClose={() => setSelectedDocForDetail(null)}
+              onEdit={(archive) => {
+                setSelectedDocForEdit(archive);
+                setShowForm(true);
+              }}
+            />
+          )}
+
+          {/* Archive List Tab */}
+          {activeTab === 'archive-list' && !selectedDocForDetail && (
             <div className="space-y-6">
-              {selectedDocForDetail ? (
-                <ArchiveDetail 
-                  archive={selectedDocForDetail} 
-                  onClose={() => setSelectedDocForDetail(null)}
-                  onEdit={(archive) => {
-                    setSelectedDocForEdit(archive);
-                    setShowForm(true);
-                  }}
-                />
-              ) : (
-                <div className="bg-white rounded-2xl shadow-sm p-6">
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pt-2 border-t border-slate-100">
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800">Inventaris Arsip</h3>
+                    <p className="text-slate-500 text-sm">Kelola dan pantau seluruh berkas fisik yang tersimpan.</p>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -1798,132 +2208,133 @@ const App: React.FC = () => {
                       onClick={exportToExcel}
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 shadow-sm shadow-emerald-100 transition-all flex items-center gap-2"
                     >
-                      <Download className="w-3 h-3" /> Excel
+                      <Download className="w-3 h-3" /> Export Excel
                     </button>
-                    <button
-                      onClick={() => window.print()}
-                      className="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-black hover:bg-slate-700 shadow-sm transition-all flex items-center gap-2"
-                    >
-                      <Printer className="w-3 h-3" /> Cetak
-                    </button>
-                  </div>
-                  
-                  <div className="flex flex-1 min-w-[300px] gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                      <input
-                        type="text"
-                        placeholder="Cari apa saja (Nama, No Berkas, Unit, Tahun, Lokasi)..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                      />
-                    </div>
-                    <select
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none"
-                    >
-                      <option value="Semua">Semua Kategori</option>
-                      <option value="Aktif">Aktif</option>
-                      <option value="Inaktif">Inaktif</option>
-                      <option value="Statis">Statis</option>
-                      <option value="Vital">Vital</option>
-                    </select>
-                    <select
-                      value={filterLocation}
-                      onChange={(e) => setFilterLocation(e.target.value)}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none"
-                    >
-                      <option value="Semua">Semua Lokasi</option>
-                      {Array.from(new Set(documents.map(d => d.building))).map(building => (
-                        <option key={building} value={building}>{building}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={filterUnit}
-                      onChange={(e) => setFilterUnit(e.target.value)}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none max-w-[150px]"
-                    >
-                      <option value="Semua">Semua Unit</option>
-                      {DJKI_UNITS.map(unit => (
-                        <option key={unit} value={unit}>{unit}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={filterYear}
-                      onChange={(e) => setFilterYear(e.target.value)}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none"
-                    >
-                      <option value="Semua">Semua Tahun</option>
-                      {Array.from(new Set(documents.map(d => d.archiveYear) as string[])).filter((y: string) => y && y.length === 4).sort((a: string, b: string) => b.localeCompare(a)).map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50 border-b">
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">No Berkas</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Nama</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Lokasi</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Kategori</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDocs.map((doc) => (
-                      <tr key={doc.id} className="border-b hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm font-mono">{doc.fileNumber}</td>
-                        <td className="px-4 py-3 text-sm">{doc.name}</td>
-                        <td className="px-4 py-3 text-sm">{doc.building} / {doc.floor}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            doc.archiveCategory === 'Aktif' ? 'bg-emerald-100 text-emerald-700' :
-                            doc.archiveCategory === 'Vital' ? 'bg-red-100 text-red-700' :
-                            'bg-slate-100 text-slate-700'
-                          }`}>
-                            {doc.archiveCategory}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setSelectedDocForDetail(doc)}
-                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                              title="Detail"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedDocForEdit(doc);
-                                setShowForm(true);
-                              }}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteArchive(doc.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                              title="Hapus"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                <div className="flex flex-wrap gap-4 mb-6 pt-4 border-t border-slate-100">
+                  <div className="flex-1 min-w-[200px] relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Cari cepat (Nama, No Berkas)..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none"
+                  >
+                    <option value="Semua">Semua Kategori</option>
+                    <option value="Aktif">Aktif</option>
+                    <option value="Inaktif">Inaktif</option>
+                    <option value="Statis">Statis</option>
+                    <option value="Vital">Vital</option>
+                  </select>
+                  <select
+                    value={filterUnit}
+                    onChange={(e) => setFilterUnit(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none max-w-[150px]"
+                  >
+                    <option value="Semua">Semua Unit</option>
+                    {DJKI_UNITS.map(unit => (
+                      <option key={unit} value={unit}>{unit}</option>
                     ))}
-                  </tbody>
-                </table>
+                  </select>
+                </div>
+
+                <ArchiveTable 
+                  data={filteredDocs} 
+                  onDetail={setSelectedDocForDetail}
+                  onEdit={(doc) => {
+                    setSelectedDocForEdit(doc);
+                    setShowForm(true);
+                  }}
+                  onDelete={deleteArchive}
+                />
               </div>
             </div>
-            )}
+          )}
+
+          {/* Search Tab */}
+          {activeTab === 'search' && !selectedDocForDetail && (
+            <div className="space-y-8">
+              <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200 text-center">
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Search className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 mb-2">Pencarian Arsip Terpadu</h2>
+                <p className="text-slate-500 mb-8 max-w-md mx-auto">Cari informasi di seluruh metadata arsip, termasuk konten di dalam dokumen melalui teknologi OCR AI.</p>
+                
+                <div className="max-w-3xl mx-auto relative">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-blue-500 w-6 h-6" />
+                  <input 
+                    type="text" 
+                    placeholder="Masukkan kata kunci, nomor berkas, nama pemohon, atau isi dokumen..." 
+                    className="w-full pl-16 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex flex-wrap items-center justify-center gap-6 mt-8">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div> Pencarian Metadata
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div> Pencarian Teks Digital (OCR)
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <div className="w-2 h-2 bg-amber-500 rounded-full"></div> Lokasi Fisik Arsip
+                  </div>
+                </div>
+              </div>
+
+              {searchQuery && (
+                <div className="bg-white rounded-2xl shadow-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-black text-slate-800">
+                      Hasil Pencarian 
+                      <span className="ml-2 px-2 py-1 bg-blue-50 text-blue-600 text-[10px] rounded uppercase font-black">
+                        {filteredDocs.length} Ditemukan
+                      </span>
+                    </h3>
+                  </div>
+                  
+                  {filteredDocs.length > 0 ? (
+                    <ArchiveTable 
+                      data={filteredDocs} 
+                      onDetail={setSelectedDocForDetail}
+                      onEdit={(doc) => {
+                        setSelectedDocForEdit(doc);
+                        setShowForm(true);
+                      }}
+                      onDelete={deleteArchive}
+                    />
+                  ) : (
+                    <div className="py-20 text-center">
+                      <div className="w-16 h-16 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Search className="w-8 h-8" />
+                      </div>
+                      <p className="text-slate-500 font-bold">Tidak ada arsip yang cocok dengan kata kunci "{searchQuery}"</p>
+                      <p className="text-slate-400 text-xs mt-1">Coba gunakan kata kunci yang lebih umum.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
