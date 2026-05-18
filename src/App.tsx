@@ -70,6 +70,7 @@ export interface ArchiveBox {
 export interface User {
   id: string;
   username: string;
+  password?: string;
   name: string;
   role: Role;
   processingUnit?: string;
@@ -414,6 +415,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 'superadmin',
     username: 'superadmin',
+    password: 'admin123',
     name: 'Super Admin DJKI',
     role: 'SUPERADMIN',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
@@ -421,6 +423,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 'admin-merek',
     username: 'adminmerek',
+    password: 'admin123',
     name: 'Admin Merek',
     role: 'UNIT_ADMIN',
     processingUnit: 'Direktorat Merek dan Indikasi Geografis',
@@ -429,6 +432,7 @@ const INITIAL_USERS: User[] = [
   {
     id: 'admin-paten',
     username: 'adminpaten',
+    password: 'admin123',
     name: 'Admin Paten',
     role: 'UNIT_ADMIN',
     processingUnit: 'Direktorat Paten, DTLST, dan Rahasia Dagang',
@@ -439,89 +443,180 @@ const INITIAL_USERS: User[] = [
 // ======================================================
 // LOGIN COMPONENT
 // ======================================================
-const VaultLogin: React.FC<{ onLogin: (user: User) => void; logoUrl: string }> = ({ onLogin, logoUrl }) => {
+const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoUrl: string }> = ({ users, onLogin, logoUrl }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isOpening, setIsOpening] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = INITIAL_USERS.find(u => u.username === username);
-    if (user && password === 'admin123') {
-      onLogin(user);
+    const user = users.find(u => u.username === username);
+    if (user && (user.password === password || (!user.password && password === 'admin123'))) {
+      setIsOpening(true);
+      // Tunggu animasi vault terbuka selesai (2.5 detik)
+      setTimeout(() => {
+        onLogin(user);
+      }, 2500);
     } else {
       setError('Username atau password salah');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <motion.div 
-              whileTap={{ scale: 0.95 }}
-              className="shine-effect cursor-pointer p-4 bg-white rounded-3xl border-2 border-slate-100 shadow-sm hover:border-blue-100 transition-all"
-            >
-              <img 
-                src={logoUrl} 
-                alt="Logo DJKI" 
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/identicon/svg?seed=DJKI';
-                }}
-                className="h-20 w-auto object-contain relative z-10"
-              />
-            </motion.div>
-          </div>
-          <h1 className="text-2xl font-black text-slate-800">Portal Arsip DJKI</h1>
-          <p className="text-slate-500 text-sm">Sistem Arsip Digital Terenkripsi</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Masukkan username"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Masukkan password"
-            />
-          </div>
-          {error && (
-            <div className="flex items-center gap-2 text-red-500 text-sm">
-              <AlertCircle className="w-4 h-4" />
-              {error}
-            </div>
-          )}
-          <button
-            type="submit"
-            className="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all"
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 overflow-hidden relative">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1)_0%,transparent_70%)]"></div>
+      
+      <AnimatePresence mode="wait">
+        {!isOpening ? (
+          <motion.div
+            key="login-form"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1, filter: 'blur(10px)' }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] p-10 w-full max-w-md border border-white/20 relative z-10"
           >
-            Masuk ke Vault
-          </button>
-        </form>
+            {/* Logo and Header */}
+            <div className="text-center mb-10">
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                className="inline-block p-4 bg-white rounded-3xl shadow-xl border border-slate-100 mb-6"
+              >
+                <img 
+                  src={logoUrl} 
+                  alt="Logo DJKI" 
+                  className="h-16 w-auto object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/identicon/svg?seed=DJKI';
+                  }}
+                />
+              </motion.div>
+              <h1 className="text-3xl font-black text-slate-800 tracking-tighter">PORTAL ARSIP</h1>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <div className="h-[1px] w-4 bg-blue-600"></div>
+                <p className="text-blue-600 text-[10px] font-black uppercase tracking-[0.2em]">Direktorat Jenderal KI</p>
+                <div className="h-[1px] w-4 bg-blue-600"></div>
+              </div>
+            </div>
 
-        <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-100">
-          <p className="text-xs text-amber-800">
-            <strong>Demo:</strong> Username: superadmin, Password: admin123
-          </p>
-        </div>
-      </motion.div>
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
+                <div className="relative">
+                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-bold text-slate-700"
+                    placeholder="Username Anda"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kunci Akses</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-bold text-slate-700"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }} 
+                  animate={{ opacity: 1, x: 0 }}
+                  className="p-3 bg-red-50 text-red-500 text-[11px] font-bold rounded-xl flex items-center gap-2 border border-red-100"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {error}
+                </motion.div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full group relative py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-blue-500/30 overflow-hidden active:scale-95"
+              >
+                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                <span className="relative z-10">Buka Brankas Digital</span>
+              </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                Sistem Manajemen Arsip Terenkripsi • v2.0
+              </p>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="vault-opening"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center z-20"
+          >
+            {/* Vault Door Animation */}
+            <div className="relative w-80 h-80 flex items-center justify-center">
+              {/* Outer Ring */}
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, ease: "easeInOut" }}
+                className="absolute inset-0 border-[12px] border-[#333] rounded-full shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]"
+              ></motion.div>
+              
+              {/* Inner Gear */}
+              <motion.div 
+                animate={{ rotate: -180 }}
+                transition={{ duration: 2, ease: "easeInOut" }}
+                className="absolute inset-8 border-[8px] border-dashed border-[#444] rounded-full"
+              ></motion.div>
+
+              {/* Vault Handle */}
+              <motion.div 
+                initial={{ rotate: 0 }}
+                animate={{ rotate: 720 }}
+                transition={{ duration: 2, ease: "easeInOut" }}
+                className="relative w-48 h-48 bg-gradient-to-br from-[#444] to-[#222] rounded-full shadow-2xl flex items-center justify-center border-4 border-[#555]"
+              >
+                <div className="w-4 h-32 bg-[#333] absolute rounded-full"></div>
+                <div className="w-32 h-4 bg-[#333] absolute rounded-full"></div>
+                <div className="w-16 h-16 bg-[#222] rounded-full border-4 border-[#444] flex items-center justify-center">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-pulse"></div>
+                </div>
+              </motion.div>
+
+              {/* Status Text */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="absolute -bottom-20 text-center"
+              >
+                <p className="text-blue-400 font-black text-xl tracking-widest uppercase animate-pulse">Akses Diterima</p>
+                <p className="text-slate-500 text-xs mt-2 font-bold uppercase tracking-widest">Membuka Brankas Arsip...</p>
+              </motion.div>
+            </div>
+
+            {/* Light Beam Effect */}
+            <motion.div 
+              initial={{ scaleX: 0, opacity: 0 }}
+              animate={{ scaleX: 1, opacity: 1 }}
+              transition={{ delay: 1.5, duration: 0.5 }}
+              className="fixed inset-0 bg-white z-50 origin-center"
+            ></motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -1569,6 +1664,7 @@ const UserFormModal: React.FC<{
   const [data, setData] = useState<User>(user || {
     id: crypto.randomUUID(),
     username: '',
+    password: '',
     name: '',
     role: 'VIEWER',
     processingUnit: units[0],
@@ -1588,6 +1684,12 @@ const UserFormModal: React.FC<{
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Username</label>
             <input type="text" value={data.username} onChange={e => setData({...data, username: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
           </div>
+          {!user && (
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Password</label>
+              <input type="password" value={data.password} onChange={e => setData({...data, password: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+            </div>
+          )}
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Role</label>
             <select value={data.role} onChange={e => setData({...data, role: e.target.value as Role})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm">
@@ -1607,6 +1709,44 @@ const UserFormModal: React.FC<{
         <div className="flex gap-3 mt-8">
           <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Batal</button>
           <button onClick={() => onSave(data)} className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all text-sm">Simpan</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const ChangePasswordModal: React.FC<{
+  user: User;
+  onSave: (userId: string, newPass: string) => void;
+  onClose: () => void;
+}> = ({ user, onSave, onClose }) => {
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+        <h3 className="text-xl font-black text-slate-800 mb-2">Ganti Password</h3>
+        <p className="text-xs text-slate-400 font-bold mb-6 uppercase tracking-tight">Pengguna: {user.name} (@{user.username})</p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Password Baru</label>
+            <input type="password" autoFocus value={newPass} onChange={e => setNewPass(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Konfirmasi Password</label>
+            <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-8">
+          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Batal</button>
+          <button 
+            disabled={!newPass || newPass !== confirmPass}
+            onClick={() => onSave(user.id, newPass)} 
+            className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Update Password
+          </button>
         </div>
       </motion.div>
     </div>
@@ -1662,6 +1802,8 @@ const App: React.FC = () => {
   const [selectedClassificationForEdit, setSelectedClassificationForEdit] = useState<string | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
+  const [showChangePassForm, setShowChangePassForm] = useState(false);
+  const [selectedUserForPass, setSelectedUserForPass] = useState<User | null>(null);
   const [scannedData, setScannedData] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showVault, setShowVault] = useState(false);
@@ -1986,6 +2128,13 @@ const App: React.FC = () => {
       setUsers(users.filter(u => u.id !== id));
     }
   };
+
+  const changeUserPassword = (id: string, newPass: string) => {
+    setUsers(users.map(u => u.id === id ? { ...u, password: newPass } : u));
+    setShowChangePassForm(false);
+    setSelectedUserForPass(null);
+    alert('Password berhasil diperbarui');
+  };
   // Vault access
   const accessVault = () => {
     if (vaultPassword === 'vault123') {
@@ -2003,7 +2152,7 @@ const App: React.FC = () => {
 
   // Show login if not logged in
   if (!isLoggedIn) {
-    return <VaultLogin onLogin={handleLogin} logoUrl={webSettings.logoUrl} />;
+    return <VaultLogin users={users} onLogin={handleLogin} logoUrl={webSettings.logoUrl} />;
   }
 
   return (
@@ -3286,6 +3435,7 @@ const App: React.FC = () => {
                         <td className="px-4 py-3 text-xs font-bold text-slate-600 tabular-nums">{u.processingUnit || 'Semua Unit'}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => { setSelectedUserForPass(u); setShowChangePassForm(true); }} className="p-1.5 bg-white text-slate-600 rounded-lg shadow-sm border border-slate-100 hover:bg-slate-900 hover:text-white transition-all" title="Ganti Password"><Key className="w-3.5 h-3.5" /></button>
                             <button onClick={() => { setSelectedUserForEdit(u); setShowUserForm(true); }} className="p-1.5 bg-white text-blue-600 rounded-lg shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"><Edit className="w-3.5 h-3.5" /></button>
                             <button onClick={() => deleteUser(u.id)} className="p-1.5 bg-white text-red-600 rounded-lg shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
@@ -3393,6 +3543,14 @@ const App: React.FC = () => {
           units={units}
           onClose={() => { setShowUserForm(false); setSelectedUserForEdit(null); }}
           onSave={saveUser}
+        />
+      )}
+      
+      {showChangePassForm && selectedUserForPass && (
+        <ChangePasswordModal
+          user={selectedUserForPass}
+          onSave={changeUserPassword}
+          onClose={() => { setShowChangePassForm(false); setSelectedUserForPass(null); }}
         />
       )}
     </div>
