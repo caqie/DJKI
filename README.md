@@ -1,6 +1,6 @@
-# Vault Arsip DJKI - Sistem Manajemen Arsip Digital
+# Portal Arsip DJKI - Sistem Manajemen Arsip Digital
 
-Vault Arsip DJKI adalah solusi manajemen arsip digital terenkripsi yang dirancang khusus untuk **Direktorat Jenderal Kekayaan Intelektual (DJKI)**. Sistem ini mempermudah tata kelola dokumen substantif (Paten, Hak Cipta, Merek, Desain Industri) maupun dokumen fasilitatif dengan standar keamanan tinggi.
+Portal Arsip DJKI adalah solusi manajemen arsip digital terenkripsi yang dirancang khusus untuk **Direktorat Jenderal Kekayaan Intelektual (DJKI)**. Sistem ini mempermudah tata kelola dokumen substantif (Paten, Hak Cipta, Merek, Desain Industri) maupun dokumen fasilitatif dengan standar keamanan tinggi.
 
 ## 🚀 Fitur Utama
 

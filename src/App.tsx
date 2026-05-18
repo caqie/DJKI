@@ -567,18 +567,19 @@ const Sidebar: React.FC<{
         />
       )}
       <aside
-        className={`fixed lg:static top-0 left-0 h-full bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 text-white z-50 transform transition-all duration-300 ${
-          isCollapsed ? 'w-20' : 'w-64'
+        className={`fixed lg:static top-0 left-0 h-full bg-[#0f172a] text-white z-50 border-r border-slate-800 transition-all duration-300 ${
+          isCollapsed ? 'w-20' : 'w-72'
         } ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } flex flex-col`}
+        } flex flex-col shadow-2xl`}
       >
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-8 overflow-hidden">
-            <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+        {/* Header/Logo Section */}
+        <div className="p-6 shrink-0">
+          <div className="flex items-center justify-between mb-2">
+            <div className={`flex items-center gap-3 transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0 scale-0' : 'opacity-100 w-auto scale-100'}`}>
               <motion.div 
                 whileTap={{ scale: 0.9 }}
-                className="shine-effect w-12 h-12 bg-white rounded-xl flex items-center justify-center shrink-0 p-2 border border-blue-200/50 cursor-pointer"
+                className="shine-effect w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 p-1.5 border border-blue-200/50 cursor-pointer shadow-sm"
               >
                 <img 
                   src={logoUrl} 
@@ -590,75 +591,76 @@ const Sidebar: React.FC<{
                 />
               </motion.div>
               <div className="min-w-[120px]">
-                <h1 className="font-black text-sm tracking-tight leading-none">VAULT ARSIP</h1>
-                <p className="text-[9px] text-blue-400 font-bold tracking-widest mt-1 uppercase">Direktorat Jenderal KI</p>
+                <h1 className="font-black text-xs tracking-tight leading-none">PORTAL ARSIP</h1>
+                <p className="text-[8px] text-blue-400 font-bold tracking-widest mt-0.5 uppercase">Direktorat Jenderal KI</p>
               </div>
             </div>
             <button 
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="hidden lg:flex p-2 hover:bg-white/10 rounded-lg transition-all"
+              className="p-2 hover:bg-slate-800 rounded-xl transition-all text-slate-400 hover:text-white"
             >
-              {isCollapsed ? <ListTree className="w-5 h-5" /> : <X className="w-5 h-5" />}
+              {isCollapsed ? <ListTree className="w-5 h-5 mx-auto" /> : <X className="w-5 h-5" />}
             </button>
           </div>
-
-          <nav className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setIsOpen(false);
-                }}
-                title={item.label}
-                className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm transition-all relative group ${
-                  activeTab === item.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <item.icon className={`w-5 h-5 shrink-0 transition-all ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
-                <span className={`transition-all duration-300 font-bold ${isCollapsed ? 'opacity-0 w-0 pointer-events-none' : 'opacity-100'}`}>
-                  {item.label}
-                </span>
-                {isCollapsed && (
-                   <div className="absolute left-16 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                     {item.label}
-                   </div>
-                )}
-              </button>
-            ))}
-          </nav>
         </div>
 
-        <div className={`mt-auto p-6 border-t border-slate-800/50 transition-all duration-300 ${isCollapsed ? 'items-center' : ''}`}>
-          <div className="flex items-center gap-3 mb-4 overflow-hidden">
-            <img
-              src={user?.avatar}
-              alt={user?.name}
-              className="w-10 h-10 rounded-xl bg-white shrink-0 shadow-sm"
-            />
-            <div className={`flex-1 min-w-0 transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-              <p className="text-sm font-bold truncate">{user?.name}</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest">{user?.role}</p>
+        {/* Navigation Section */}
+        <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id);
+                setIsOpen(false);
+              }}
+              title={isCollapsed ? item.label : ""}
+              className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-sm transition-all group relative
+                ${activeTab === item.id 
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}
+            >
+              <item.icon className={`w-5 h-5 shrink-0 ${activeTab === item.id ? 'text-white' : 'group-hover:text-blue-400'} transition-all ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
+              {!isCollapsed && <span className="truncate">{item.label}</span>}
+              {isCollapsed && (
+                 <div className="absolute left-full ml-4 px-3 py-1.5 bg-[#1e293b] text-white text-[10px] rounded-lg shadow-xl border border-slate-700 opacity-0 group-hover:opacity-100 pointer-events-none transition-all translate-x-[-10px] group-hover:translate-x-0 whitespace-nowrap z-50 font-black">
+                   {item.label}
+                 </div>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* Profile & Footer Section */}
+        <div className="p-4 border-t border-slate-800/50 bg-[#0f172a]">
+          <div className={`p-2.5 rounded-2xl bg-slate-800/40 border border-slate-700/50 mb-3 transition-all duration-300 ${isCollapsed ? 'px-1' : ''}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 border-2 border-blue-500/30 shadow-sm">
+                <img src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"} alt="User" />
+              </div>
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-black truncate">{user?.name || 'Administrator'}</p>
+                  <p className="text-[9px] text-blue-400 font-bold uppercase tracking-wider">{user?.role || 'SUPERADMIN'}</p>
+                </div>
+              )}
             </div>
           </div>
-          <button
-            onClick={onLogout}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl text-sm transition-all mb-4 ${isCollapsed ? 'justify-center' : ''}`}
-          >
-            <LogOut className="w-5 h-5" />
-            <span className={`${isCollapsed ? 'hidden' : 'block'} font-bold`}>Keluar</span>
-          </button>
           
-          <div className={`pt-4 border-t border-slate-800/50 transition-all duration-300 ${isCollapsed ? 'hidden' : 'block'}`}>
-            <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest font-bold">
-              Created By
-            </p>
-            <p className="text-[11px] text-blue-400 text-center font-black mt-1 uppercase">
-              caqiestudioproduction
-            </p>
-          </div>
+          <button 
+            onClick={onLogout}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl font-black text-[13px] transition-all
+              ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!isCollapsed && <span>Keluar</span>}
+          </button>
+
+          {!isCollapsed && (
+            <div className="mt-4 pt-4 border-t border-slate-800/30 text-center">
+              <p className="text-[7px] text-slate-500 font-black uppercase tracking-[0.3em]">Created By</p>
+              <p className="text-[9px] text-blue-400/60 font-black mt-0.5 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-default">caqiestudioproduction</p>
+            </div>
+          )}
         </div>
       </aside>
     </>
@@ -670,9 +672,12 @@ const Sidebar: React.FC<{
 // ======================================================
 const ArchiveForm: React.FC<{
   archive: Archive | null;
+  units: string[];
+  categories: string[];
+  classifications: string[];
   onSave: (archive: Archive) => void;
   onClose: () => void;
-}> = ({ archive, onSave, onClose }) => {
+}> = ({ archive, units, categories, classifications, onSave, onClose }) => {
   const [data, setData] = useState<Archive>(archive || { ...EMPTY_ARCHIVE, id: crypto.randomUUID() });
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
@@ -787,7 +792,7 @@ const ArchiveForm: React.FC<{
                 <InputField name="fileNumber" label="Nomor Berkas" value={data.fileNumber} onChange={handleChange} placeholder="F-2024-XXX" />
                 <InputField name="archiveItemNumber" label="Nomor Item" value={data.archiveItemNumber} onChange={handleChange} placeholder="ITEM-01" />
                 <InputField name="boxNumber" label="Nomor Box" value={data.boxNumber} onChange={handleChange} placeholder="BOX-2024-XXX" />
-                <SelectField name="archiveCategory" label="Kategori" value={data.archiveCategory} onChange={handleChange} options={['Aktif', 'Inaktif', 'Statis', 'Vital']} />
+                <SelectField name="archiveCategory" label="Kategori" value={data.archiveCategory} onChange={handleChange} options={categories} />
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Kode Klasifikasi</label>
                   <select
@@ -865,7 +870,7 @@ const ArchiveForm: React.FC<{
                 Status & Keamanan
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SelectField name="securityClassification" label="Klasifikasi Keamanan" value={data.securityClassification} onChange={handleChange} options={['Terbuka', 'Terbatas', 'Rahasia']} />
+                <SelectField name="securityClassification" label="Klasifikasi Keamanan" value={data.securityClassification} onChange={handleChange} options={classifications} />
                 <InputField name="retentionPeriod" label="Masa Retensi" value={data.retentionPeriod} onChange={handleChange} placeholder="10 Tahun" />
               </div>
             </div>
@@ -893,7 +898,7 @@ const ArchiveForm: React.FC<{
                 Media & Tambahan
               </h3>
               <div className="grid grid-cols-1 gap-4">
-                <SelectField name="processingUnit" label="Unit Pengolah" value={data.processingUnit} onChange={handleChange} options={DJKI_UNITS} />
+                <SelectField name="processingUnit" label="Unit Pengolah" value={data.processingUnit} onChange={handleChange} options={units} />
                 
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-400 uppercase">Input Berkas Digital (OCR Otomatis)</label>
@@ -1235,9 +1240,10 @@ const ArchiveDetail: React.FC<{
 // ======================================================
 const LoanFormModal: React.FC<{
   archives: Archive[];
+  units: string[];
   onClose: () => void;
   onSave: (docId: string, name: string, nip: string, unit: string, notes: string) => void;
-}> = ({ archives, onClose, onSave }) => {
+}> = ({ archives, units, onClose, onSave }) => {
   const [selectedArchiveId, setSelectedArchiveId] = useState('');
   const [name, setName] = useState('');
   const [nip, setNip] = useState('');
@@ -1333,7 +1339,7 @@ const LoanFormModal: React.FC<{
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">-- Pilih Unit Kerja --</option>
-              {DJKI_UNITS.map(unitOption => (
+              {units.map(unitOption => (
                 <option key={unitOption} value={unitOption}>{unitOption}</option>
               ))}
             </select>
@@ -1525,6 +1531,88 @@ const DetailItem: React.FC<{ label: string; value: string; icon: React.Component
   </div>
 );
 
+const ManagementModal: React.FC<{
+  title: string;
+  placeholder: string;
+  initialValue: string | null;
+  onSave: (old: string | null, newVal: string) => void;
+  onClose: () => void;
+}> = ({ title, placeholder, initialValue, onSave, onClose }) => {
+  const [value, setValue] = useState(initialValue || '');
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+        <h3 className="text-xl font-black text-slate-800 mb-6">{title}</h3>
+        <input
+          autoFocus
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl mb-6 outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+        />
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Batal</button>
+          <button onClick={() => onSave(initialValue, value)} className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all text-sm">Simpan</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const UserFormModal: React.FC<{
+  user: User | null;
+  units: string[];
+  onSave: (user: User) => void;
+  onClose: () => void;
+}> = ({ user, units, onSave, onClose }) => {
+  const [data, setData] = useState<User>(user || {
+    id: crypto.randomUUID(),
+    username: '',
+    name: '',
+    role: 'VIEWER',
+    processingUnit: units[0],
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+        <h3 className="text-xl font-black text-slate-800 mb-6">{user ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Nama Lengkap</label>
+            <input type="text" value={data.name} onChange={e => setData({...data, name: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Username</label>
+            <input type="text" value={data.username} onChange={e => setData({...data, username: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Role</label>
+            <select value={data.role} onChange={e => setData({...data, role: e.target.value as Role})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm">
+              <option value="SUPERADMIN">SUPERADMIN</option>
+              <option value="UNIT_ADMIN">UNIT_ADMIN</option>
+              <option value="VIEWER">VIEWER</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Unit Kerja</label>
+            <select value={data.processingUnit} onChange={e => setData({...data, processingUnit: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm">
+              <option value="">Semua Unit</option>
+              {units.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-8">
+          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Batal</button>
+          <button onClick={() => onSave(data)} className="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all text-sm">Simpan</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 // ======================================================
 // MAIN APP COMPONENT
 // ======================================================
@@ -1535,10 +1623,10 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [webSettings, setWebSettings] = useState({
-    siteName: 'Vault Arsip DJKI',
+    siteName: 'Portal Arsip DJKI',
     department: 'Direktorat Jenderal Kekayaan Intelektual',
     maintenanceMode: false,
-    logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Logo_DJKI.png',
+    logoUrl: 'https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95',
     theme: 'system',
     autoBackup: true,
     retentionPolicy: 'Permanen',
@@ -1552,6 +1640,9 @@ const App: React.FC = () => {
   const [selectedArchiveForLabel, setSelectedArchiveForLabel] = useState<Archive | null>(null);
   const [labelMode, setLabelMode] = useState<'box' | 'berkas'>('box');
   const [searchLabel, setSearchLabel] = useState('');
+  const [units, setUnits] = useState<string[]>(DJKI_UNITS);
+  const [categories, setCategories] = useState<string[]>(['Aktif', 'Inaktif', 'Statis', 'Vital']);
+  const [classifications, setClassifications] = useState<string[]>(['Terbuka', 'Terbatas', 'Rahasia']);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [loans, setLoans] = useState<LoanRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1562,6 +1653,15 @@ const App: React.FC = () => {
   const [searchCodeQuery, setSearchCodeQuery] = useState('');
   const [selectedDocForEdit, setSelectedDocForEdit] = useState<Archive | null>(null);
   const [showForm, setShowForm] = useState(false);
+  
+  const [showUnitForm, setShowUnitForm] = useState(false);
+  const [selectedUnitForEdit, setSelectedUnitForEdit] = useState<string | null>(null);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [selectedCategoryForEdit, setSelectedCategoryForEdit] = useState<string | null>(null);
+  const [showClassificationForm, setShowClassificationForm] = useState(false);
+  const [selectedClassificationForEdit, setSelectedClassificationForEdit] = useState<string | null>(null);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
   const [scannedData, setScannedData] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showVault, setShowVault] = useState(false);
@@ -1637,11 +1737,11 @@ const App: React.FC = () => {
 
   // Stats per unit
   const unitStats = useMemo(() => {
-    return DJKI_UNITS.map(unit => ({
+    return units.map(unit => ({
       name: unit,
       count: documents.filter(d => d.processingUnit === unit).length
     }));
-  }, [documents]);
+  }, [documents, units]); // Added units to dependency
 
   // Handle login
   const handleLogin = (user: User) => {
@@ -1710,7 +1810,7 @@ const App: React.FC = () => {
         name: row['Nama'] || '',
         archiveType: row['Jenis'] || '',
         archiveCategory: (row['Kategori'] as ArchiveCategory) || 'Aktif',
-        processingUnit: row['Unit'] || DJKI_UNITS[0],
+        processingUnit: row['Unit'] || units[0],
         building: row['Gedung'] || '',
         floor: row['Lantai'] || '',
         archiveYear: row['Tahun'] || new Date().getFullYear().toString(),
@@ -1793,6 +1893,99 @@ const App: React.FC = () => {
     setSelectedLoanForReturn(null);
   };
 
+  // Unit CRUD
+  const saveUnit = (oldName: string | null, newName: string) => {
+    if (!newName.trim()) return;
+    if (oldName) {
+      setUnits(units.map(u => u === oldName ? newName : u));
+      setDocuments(documents.map(d => d.processingUnit === oldName ? { ...d, processingUnit: newName } : d));
+    } else {
+      if (units.includes(newName)) {
+        alert('Unit sudah ada');
+        return;
+      }
+      setUnits([...units, newName]);
+    }
+    setShowUnitForm(false);
+    setSelectedUnitForEdit(null);
+  };
+
+  const deleteUnit = (unitName: string) => {
+    const hasArchives = documents.some(d => d.processingUnit === unitName);
+    if (hasArchives) {
+      alert('Tidak dapat menghapus unit yang masih memiliki arsip. Pindahkan arsip terlebih dahulu.');
+      return;
+    }
+    if (window.confirm(`Hapus unit ${unitName}?`)) {
+      setUnits(units.filter(u => u !== unitName));
+    }
+  };
+
+  // Category CRUD
+  const saveCategory = (oldName: string | null, newName: string) => {
+    if (!newName.trim()) return;
+    if (oldName) {
+      setCategories(categories.map(c => c === oldName ? newName : c));
+    } else {
+      if (categories.includes(newName)) {
+        alert('Kategori sudah ada');
+        return;
+      }
+      setCategories([...categories, newName]);
+    }
+    setShowCategoryForm(false);
+    setSelectedCategoryForEdit(null);
+  };
+
+  const deleteCategory = (catName: string) => {
+    if (window.confirm(`Hapus kategori ${catName}?`)) {
+      setCategories(categories.filter(c => c !== catName));
+    }
+  };
+
+  // Classification CRUD
+  const saveClassification = (oldName: string | null, newName: string) => {
+    if (!newName.trim()) return;
+    if (oldName) {
+      setClassifications(classifications.map(c => c === oldName ? newName : c));
+    } else {
+      if (classifications.includes(newName)) {
+        alert('Klasifikasi sudah ada');
+        return;
+      }
+      setClassifications([...classifications, newName]);
+    }
+    setShowClassificationForm(false);
+    setSelectedClassificationForEdit(null);
+  };
+
+  const deleteClassification = (clsName: string) => {
+    if (window.confirm(`Hapus klasifikasi ${clsName}?`)) {
+      setClassifications(classifications.filter(c => c !== clsName));
+    }
+  };
+
+  // User CRUD
+  const saveUser = (user: User) => {
+    const exist = users.find(u => u.id === user.id);
+    if (exist) {
+      setUsers(users.map(u => u.id === user.id ? user : u));
+    } else {
+      setUsers([...users, user]);
+    }
+    setShowUserForm(false);
+    setSelectedUserForEdit(null);
+  };
+
+  const deleteUser = (id: string) => {
+    if (id === currentUser?.id) {
+      alert('Anda tidak dapat menghapus akun Anda sendiri');
+      return;
+    }
+    if (window.confirm('Hapus pengguna ini?')) {
+      setUsers(users.filter(u => u.id !== id));
+    }
+  };
   // Vault access
   const accessVault = () => {
     if (vaultPassword === 'vault123') {
@@ -1814,7 +2007,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-sans">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -1827,33 +2020,33 @@ const App: React.FC = () => {
         logoUrl={webSettings.logoUrl}
       />
 
-      <main className="flex-1 p-4 lg:p-8 overflow-auto">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Header - Fixed */}
+        <header className="shrink-0 bg-white p-4 lg:px-8 border-b border-slate-200 z-10">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="lg:hidden p-3 bg-white rounded-xl shadow-sm"
+                className="lg:hidden p-3 bg-white rounded-xl shadow-sm border border-slate-100"
               >
                 ☰
               </button>
               <div>
-                <h1 className="text-2xl font-black text-slate-800 capitalize">
-                  {activeTab === 'dashboard' && 'Dashboard Analitik'}
-                  {activeTab === 'archive-list' && 'Daftar Arsip'}
-                  {activeTab === 'search' && 'Pencarian Arsip'}
+                <h1 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none">
+                  {activeTab === 'dashboard' && 'Dashboard Overview'}
+                  {activeTab === 'archive-list' && 'Daftar Arsip Digital'}
+                  {activeTab === 'search' && 'Pencarian Dokumen'}
                   {activeTab === 'loans' && 'Peminjaman Arsip'}
                   {activeTab === 'vault' && 'Vault Rahasia'}
-                  {activeTab === 'labels' && 'Cetak Label'}
-                  {activeTab === 'scanner' && 'Scan QR Code'}
+                  {activeTab === 'labels' && 'Cetak Label Arsip'}
+                  {activeTab === 'scanner' && 'Scan QR Kontrol'}
                   {activeTab === 'archive-codes' && 'Daftar Kode Klasifikasi'}
-                  {activeTab === 'reports' && 'Laporan'}
-                  {activeTab === 'units' && 'Unit DJKI'}
-                  {activeTab === 'users' && 'Pengguna'}
+                  {activeTab === 'reports' && 'Laporan & Statistik'}
+                  {activeTab === 'units' && 'Manajemen Unit DJKI'}
+                  {activeTab === 'users' && 'Manajemen Pengguna'}
                   {activeTab === 'settings' && 'Pengaturan Jurnal & Sistem'}
                 </h1>
-                <p className="text-slate-500 text-sm">Sistem Manajemen Arsip Digital DJKI</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Sistem Manajemen Arsip Digital DJKI • v2.1.0</p>
               </div>
             </div>
 
@@ -1882,10 +2075,14 @@ const App: React.FC = () => {
                 </label>
               </div>
             </div>
-          </header>
+          </div>
+        </header>
 
-          {/* Dashboard */}
-          {activeTab === 'dashboard' && (
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-auto p-4 lg:p-8 custom-scrollbar">
+          <div className="max-w-7xl mx-auto">
+            {/* Dashboard */}
+            {activeTab === 'dashboard' && (
             <div className="space-y-8">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -2019,7 +2216,7 @@ const App: React.FC = () => {
                                 <Camera className="w-3 h-3" /> Ganti Logo
                               </label>
                               <button 
-                                onClick={() => setWebSettings({...webSettings, logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Logo_DJKI.png'})}
+                                onClick={() => setWebSettings({...webSettings, logoUrl: 'https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95'})}
                                 className="px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl font-black text-[10px] hover:bg-slate-50 transition-all"
                               >
                                 Reset Default
@@ -2241,7 +2438,7 @@ const App: React.FC = () => {
                     className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none max-w-[150px]"
                   >
                     <option value="Semua">Semua Unit</option>
-                    {DJKI_UNITS.map(unit => (
+                    {units.map(unit => (
                       <option key={unit} value={unit}>{unit}</option>
                     ))}
                   </select>
@@ -2873,16 +3070,22 @@ const App: React.FC = () => {
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-slate-800">Daftar Unit Kerja DJKI</h3>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Unit Baru</button>
+                  <button onClick={() => { setSelectedUnitForEdit(null); setShowUnitForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200">
+                    + Unit Baru
+                  </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {DJKI_UNITS.map((unit) => (
-                    <div key={unit} className="p-6 rounded-2xl border border-slate-100 bg-slate-50 hover:border-blue-200 transition-all group">
+                  {units.map((unit) => (
+                    <div key={unit} className="p-6 rounded-2xl border border-slate-100 bg-slate-50 hover:border-blue-200 transition-all group relative">
+                      <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onClick={() => { setSelectedUnitForEdit(unit); setShowUnitForm(true); }} className="p-1.5 bg-white text-blue-600 rounded-lg shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => deleteUnit(unit)} className="p-1.5 bg-white text-red-600 rounded-lg shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
                           <Building2 className="w-5 h-5" />
                         </div>
-                        <h4 className="font-bold text-slate-800 text-sm leading-tight">{unit}</h4>
+                        <h4 className="font-bold text-slate-800 text-sm leading-tight pr-12">{unit}</h4>
                       </div>
                       <div className="flex justify-between items-end">
                         <p className="text-2xl font-black text-blue-600">
@@ -2902,11 +3105,16 @@ const App: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-slate-800">Master Kategori Arsip</h3>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Kategori Baru</button>
+                <button onClick={() => { setSelectedCategoryForEdit(null); setShowCategoryForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700">+ Kategori Baru</button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {['Aktif', 'Inaktif', 'Statis', 'Vital'].map(cat => (
-                  <div key={cat} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                {categories.map(cat => (
+                  <div key={cat} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center group relative overflow-hidden">
+                    <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/5 transition-all pointer-events-none" />
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => { setSelectedCategoryForEdit(cat); setShowCategoryForm(true); }} className="p-1 bg-white text-blue-600 rounded border border-slate-200 hover:bg-blue-600 hover:text-white"><Edit className="w-3 h-3" /></button>
+                      <button onClick={() => deleteCategory(cat)} className="p-1 bg-white text-red-600 rounded border border-slate-200 hover:bg-red-600 hover:text-white"><Trash2 className="w-3 h-3" /></button>
+                    </div>
                     <FolderOpen className="w-8 h-8 text-blue-600 mx-auto mb-3" />
                     <p className="font-black text-slate-800">{cat}</p>
                     <p className="text-xs text-slate-500 mt-1">{documents.filter(d => d.archiveCategory === cat).length} Berkas</p>
@@ -2921,18 +3129,22 @@ const App: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-slate-800">Master Klasifikasi Keamanan</h3>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Klasifikasi Baru</button>
+                <button onClick={() => { setSelectedClassificationForEdit(null); setShowClassificationForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Klasifikasi Baru</button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {['Terbuka', 'Terbatas', 'Rahasia'].map(cls => (
-                  <div key={cls} className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                {classifications.map(cls => (
+                  <div key={cls} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 group relative">
+                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => { setSelectedClassificationForEdit(cls); setShowClassificationForm(true); }} className="p-1 px-2 bg-white text-blue-600 rounded border border-slate-200 hover:bg-blue-600 hover:text-white text-[10px] font-bold">Edit</button>
+                      <button onClick={() => deleteClassification(cls)} className="p-1 px-2 bg-white text-red-600 rounded border border-slate-200 hover:bg-red-600 hover:text-white text-[10px] font-bold">Hapus</button>
+                    </div>
                     <ShieldCheck className="w-8 h-8 text-blue-600 mb-3" />
                     <p className="font-black text-slate-800">{cls}</p>
                     <p className="text-xs text-slate-500 mt-1 mb-4">Pengaturan akses level {cls}</p>
                     <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                       <div 
                         className={`h-full ${cls === 'Rahasia' ? 'bg-red-500' : cls === 'Terbatas' ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                        style={{ width: `${(documents.filter(d => d.securityClassification === cls).length / documents.length) * 100}%` }}
+                        style={{ width: `${(documents.filter(d => d.securityClassification === cls).length / (documents.length || 1)) * 100}%` }}
                       ></div>
                     </div>
                   </div>
@@ -3039,7 +3251,7 @@ const App: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-slate-800">Manajemen Pengguna</h3>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ User Baru</button>
+                <button onClick={() => { setSelectedUserForEdit(null); setShowUserForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700">+ User Baru</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -3048,30 +3260,35 @@ const App: React.FC = () => {
                       <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Role</th>
                       <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Unit</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Aksi</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase text-center">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.map(u => (
-                      <tr key={u.id} className="border-b hover:bg-slate-50">
+                      <tr key={u.id} className="border-b hover:bg-slate-50 group">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <img src={u.avatar} alt="" className="w-8 h-8 rounded-lg" />
+                            <img src={u.avatar} alt="" className="w-8 h-8 rounded-lg shadow-sm border border-slate-100" />
                             <div>
-                              <p className="text-sm font-bold">{u.name}</p>
-                              <p className="text-[10px] text-slate-400">@{u.username}</p>
+                              <p className="text-sm font-bold text-slate-800">{u.name}</p>
+                              <p className="text-[10px] text-slate-400 font-bold tracking-tight">@{u.username}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-black rounded uppercase">
+                          <span className={`px-2 py-1 text-[9px] font-black rounded uppercase tracking-wider ${
+                            u.role === 'SUPERADMIN' ? 'bg-purple-100 text-purple-700' :
+                            u.role === 'UNIT_ADMIN' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                          }`}>
                             {u.role}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{u.processingUnit || 'Semua Unit'}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-slate-600 tabular-nums">{u.processingUnit || 'Semua Unit'}</td>
                         <td className="px-4 py-3">
-                          <button className="p-2 text-slate-400 hover:text-blue-600"><Edit className="w-4 h-4" /></button>
-                          <button className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => { setSelectedUserForEdit(u); setShowUserForm(true); }} className="p-1.5 bg-white text-blue-600 rounded-lg shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => deleteUser(u.id)} className="p-1.5 bg-white text-red-600 rounded-lg shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -3080,13 +3297,36 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
+          </div>
         </div>
+
+        {/* Footer - Fixed */}
+        <footer className="shrink-0 bg-white border-t border-slate-200 p-4 lg:px-8 z-10">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <p className="text-[10px] text-slate-400 font-bold tracking-tight uppercase text-center md:text-left">
+                © {new Date().getFullYear()} {webSettings.siteName} • DIREKTORAT JENDERAL KEKAYAAN INTELEKTUAL
+              </p>
+            </div>
+            <div className="flex items-center gap-6">
+              <a href="#" className="text-[10px] text-slate-400 hover:text-blue-600 font-black uppercase tracking-widest transition-colors">Panduan Sistem</a>
+              <div className="h-3 w-[1px] bg-slate-200"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest leading-none">Developed by</span>
+                <span className="text-[10px] text-blue-600 font-black tracking-widest leading-none">CAQIESTUDIOPRODUCTION</span>
+              </div>
+            </div>
+          </div>
+        </footer>
       </main>
 
       {/* Archive Form Modal */}
       {showForm && (
         <ArchiveForm
           archive={selectedDocForEdit}
+          units={units}
+          categories={categories}
+          classifications={classifications}
           onSave={saveArchive}
           onClose={() => {
             setShowForm(false);
@@ -3098,6 +3338,7 @@ const App: React.FC = () => {
       {showLoanForm && (
         <LoanFormModal
           archives={documents}
+          units={units}
           onClose={() => setShowLoanForm(false)}
           onSave={createLoan}
         />
@@ -3112,6 +3353,46 @@ const App: React.FC = () => {
             setSelectedLoanForReturn(null);
           }}
           onSave={returnLoan}
+        />
+      )}
+
+      {/* Management Modals */}
+      {showUnitForm && (
+        <ManagementModal
+          title={selectedUnitForEdit ? 'Edit Unit Kerja' : 'Tambah Unit Kerja'}
+          placeholder="Nama Unit Kerja (e.g. Subdit Kepegawaian)"
+          initialValue={selectedUnitForEdit}
+          onClose={() => { setShowUnitForm(false); setSelectedUnitForEdit(null); }}
+          onSave={saveUnit}
+        />
+      )}
+
+      {showCategoryForm && (
+        <ManagementModal
+          title={selectedCategoryForEdit ? 'Edit Kategori' : 'Tambah Kategori'}
+          placeholder="Nama Kategori (e.g. Aktif)"
+          initialValue={selectedCategoryForEdit}
+          onClose={() => { setShowCategoryForm(false); setSelectedCategoryForEdit(null); }}
+          onSave={saveCategory}
+        />
+      )}
+
+      {showClassificationForm && (
+        <ManagementModal
+          title={selectedClassificationForEdit ? 'Edit Klasifikasi' : 'Tambah Klasifikasi'}
+          placeholder="Nama Klasifikasi (e.g. Rahasia)"
+          initialValue={selectedClassificationForEdit}
+          onClose={() => { setShowClassificationForm(false); setSelectedClassificationForEdit(null); }}
+          onSave={saveClassification}
+        />
+      )}
+
+      {showUserForm && (
+        <UserFormModal
+          user={selectedUserForEdit}
+          units={units}
+          onClose={() => { setShowUserForm(false); setSelectedUserForEdit(null); }}
+          onSave={saveUser}
         />
       )}
     </div>
