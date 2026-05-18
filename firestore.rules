@@ -29,30 +29,23 @@ service cloud.firestore {
 
     // Collections
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isAdmin();
-      allow update: if isSignedIn() && (isAdmin() || (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])));
-      allow delete: if isSignedIn() && isAdmin() && userId != request.auth.uid;
+      allow read, write: if true;
     }
 
     match /documents/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow read, write: if true;
     }
 
     match /boxes/{boxId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow read, write: if true;
     }
 
     match /loans/{loanId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow read, write: if true;
     }
 
     match /settings/{settingId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isAdmin();
+      allow read, write: if true;
     }
   }
 }

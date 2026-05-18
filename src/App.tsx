@@ -469,19 +469,10 @@ const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoU
     if (user && (user.password === password || (!user.password && password === 'admin123'))) {
       setIsOpening(true);
       
-      try {
-        // Sign in to Firebase anonymously to satisfy security rules
-        await signInAnonymously(auth);
-        
-        // Wait for vault opening animation (2.5s)
-        setTimeout(() => {
-          onLogin(user);
-        }, 2500);
-      } catch (err) {
-        console.error("Firebase Auth Error:", err);
-        setError('Gagal menghubungkan ke layanan keamanan');
-        setIsOpening(false);
-      }
+      // Wait for vault opening animation (2.5s)
+      setTimeout(() => {
+        onLogin(user);
+      }, 2500);
     } else {
       setError('Username atau password salah');
     }
@@ -691,7 +682,7 @@ const Sidebar: React.FC<{
 }> = ({ activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed, user, onLogout, logoUrl }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'archive-list', label: 'Daftar Arsip', icon: Archive },
+    { id: 'archive-list', label: 'Daftar Arsip', icon: ArchiveIcon },
     { id: 'search', label: 'Pencarian', icon: Search },
     { id: 'loans', label: 'Peminjaman', icon: FileText },
     { id: 'vault', label: 'Vault Rahasia', icon: Lock },
@@ -1238,7 +1229,7 @@ const ArchiveDetail: React.FC<{
             <DetailItem label="Nomor Dokumen" value={archive.documentNumber} icon={Database} />
             <DetailItem label="Tanggal Dokumen" value={archive.documentDate} icon={Clock} />
             <DetailItem label="Jenis Arsip" value={archive.archiveType} icon={ListTree} />
-            <DetailItem label="Bentuk Fisik" value={archive.documentForm} icon={Archive} />
+            <DetailItem label="Bentuk Fisik" value={archive.documentForm} icon={ArchiveIcon} />
             <DetailItem label="Masa Retensi" value={archive.retentionPeriod} icon={RefreshCw} />
             
             {/* KI Specific Details */}
@@ -1989,12 +1980,7 @@ const App: React.FC = () => {
   };
 
   // Handle logout
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error("Firebase Signout Error:", err);
-    }
+  const handleLogout = () => {
     setCurrentUser(null);
     setIsLoggedIn(false);
     setActiveTab('dashboard');
@@ -2404,7 +2390,7 @@ const App: React.FC = () => {
             <div className="space-y-8">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Total Arsip" value={documents.length} icon={Archive} color="bg-blue-600" />
+                <StatCard title="Total Arsip" value={documents.length} icon={ArchiveIcon} color="bg-blue-600" />
                 <StatCard title="Arsip Aktif" value={documents.filter(d => d.archiveCategory === 'Aktif').length} icon={CheckCircle} color="bg-emerald-600" />
                 <StatCard title="Arsip Rahasia" value={documents.filter(d => d.securityClassification === 'Rahasia').length} icon={Lock} color="bg-red-600" />
                 <StatCard title="Sedang Dipinjam" value={loans.filter(l => l.status === 'Dipinjam').length} icon={FileText} color="bg-amber-600" />
