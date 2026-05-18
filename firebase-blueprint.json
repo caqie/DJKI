@@ -98,6 +98,26 @@
           "items": { "type": "string" }
         }
       }
+    },
+    "RolePermissions": {
+      "title": "Role Permissions",
+      "description": "Defines which modules each role can access",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string" },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "allowed": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "required": ["role", "modules"]
     }
   },
   "firestore": {
@@ -132,6 +152,10 @@
     "/settings/classifications": {
       "schema": "ConfigList",
       "description": "Archive classification levels"
+    },
+    "/permissions/{role}": {
+      "schema": "RolePermissions",
+      "description": "Role-based access control settings"
     }
   }
 }

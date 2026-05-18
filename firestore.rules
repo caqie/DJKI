@@ -47,5 +47,9 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read, write: if true;
     }
+    
+    match /permissions/{role} {
+      allow read, write: if true;
+    }
   }
 }

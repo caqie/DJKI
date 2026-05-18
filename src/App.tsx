@@ -35,7 +35,43 @@ import { db, auth, handleFirestoreError, OperationType } from './firebase';
 export type ArchiveCategory = 'Aktif' | 'Inaktif' | 'Statis' | 'Vital';
 export type SecurityClassification = 'Terbuka' | 'Terbatas' | 'Rahasia';
 export type DocumentForm = 'Asli' | 'Salinan' | 'Scan';
-export type Role = 'SUPERADMIN' | 'UNIT_ADMIN' | 'VIEWER';
+export type Role = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'VIEWER';
+
+export interface ModulePermission {
+  id: string;
+  label: string;
+  allowed: boolean;
+}
+
+export interface RolePermissions {
+  role: Role;
+  modules: ModulePermission[];
+}
+
+const DEFAULT_MODULES = [
+  { id: 'dashboard', label: 'Dashboard', allowed: true },
+  { id: 'archive-list', label: 'Daftar Arsip', allowed: true },
+  { id: 'search', label: 'Pencarian', allowed: true },
+  { id: 'loans', label: 'Peminjaman', allowed: false },
+  { id: 'vault', label: 'Vault Rahasia', allowed: false },
+  { id: 'labels', label: 'Cetak Label', allowed: false },
+  { id: 'scanner', label: 'Scan QR', allowed: false },
+  { id: 'reports', label: 'Laporan', allowed: false },
+  { id: 'units', label: 'Unit Kerja', allowed: false },
+  { id: 'categories', label: 'Kategori Arsip', allowed: false },
+  { id: 'classifications', label: 'Keamanan', allowed: false },
+  { id: 'archive-codes', label: 'Kode Klasifikasi', allowed: false },
+  { id: 'users', label: 'Manajemen User', allowed: false },
+  { id: 'access', label: 'Hak Akses', allowed: false },
+  { id: 'settings', label: 'Pengaturan', allowed: false },
+];
+
+const INITIAL_PERMISSIONS: RolePermissions[] = [
+  { role: 'SUPERADMIN', modules: DEFAULT_MODULES.map(m => ({ ...m, allowed: true })) },
+  { role: 'ADMIN', modules: DEFAULT_MODULES.map(m => ({ ...m, allowed: !['access'].includes(m.id) })) },
+  { role: 'OPERATOR', modules: DEFAULT_MODULES.map(m => ({ ...m, allowed: ['dashboard', 'archive-list', 'search', 'loans', 'labels', 'scanner', 'reports', 'units', 'categories', 'classifications', 'archive-codes'].includes(m.id) })) },
+  { role: 'VIEWER', modules: DEFAULT_MODULES.map(m => ({ ...m, allowed: ['dashboard', 'archive-list', 'search'].includes(m.id) })) },
+];
 
 export interface Archive {
   id: string;
@@ -439,24 +475,105 @@ const INITIAL_USERS: User[] = [
     username: 'adminmerek',
     password: 'admin123',
     name: 'Admin Merek',
-    role: 'UNIT_ADMIN',
+    role: 'ADMIN',
     processingUnit: 'Direktorat Merek dan Indikasi Geografis',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka'
   },
   {
-    id: 'admin-paten',
-    username: 'adminpaten',
-    password: 'admin123',
-    name: 'Admin Paten',
-    role: 'UNIT_ADMIN',
-    processingUnit: 'Direktorat Paten, DTLST, dan Rahasia Dagang',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Budi'
+    id: 'viewer-tamu',
+    username: 'viewer',
+    password: 'viewer123',
+    name: 'Pengunjung Umum',
+    role: 'VIEWER',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'
   }
 ];
 
 // ======================================================
-// LOGIN COMPONENT
+// PERMISSION MODAL
 // ======================================================
+const PermissionModal: React.FC<{
+  role: Role;
+  permissions: RolePermissions[];
+  onClose: () => void;
+  onSave: (perms: RolePermissions) => void;
+}> = ({ role, permissions, onClose, onSave }) => {
+  const currentPerms = permissions.find(p => p.role === role) || { role, modules: DEFAULT_MODULES };
+  const [data, setData] = useState<RolePermissions>(JSON.parse(JSON.stringify(currentPerms)));
+
+  const toggleModule = (id: string) => {
+    const updatedModules = data.modules.map(m => 
+      m.id === id ? { ...m, allowed: !m.allowed } : m
+    );
+    setData({ ...data, modules: updatedModules });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 className="text-xl font-black text-slate-800 tracking-tight">Atur Izin Akses</h3>
+            <p className="text-slate-500 text-sm font-medium">Mengatur modul yang dapat diakses oleh peran <span className="text-blue-600 font-bold">{role}</span></p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-all shadow-sm border border-slate-200">
+            <X className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+        
+        <div className="p-8 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {data.modules.map((module) => (
+              <div 
+                key={module.id} 
+                onClick={() => toggleModule(module.id)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
+                  module.allowed 
+                    ? 'bg-blue-50 border-blue-200 shadow-sm shadow-blue-100' 
+                    : 'bg-white border-slate-100 hover:border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                    module.allowed ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'
+                  }`}>
+                    {module.allowed ? <ShieldCheck className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                  </div>
+                  <span className={`text-sm font-bold ${module.allowed ? 'text-blue-900' : 'text-slate-600'}`}>{module.label}</span>
+                </div>
+                <div className={`w-10 h-5 rounded-full relative transition-all ${module.allowed ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${module.allowed ? 'right-1' : 'left-1'}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex gap-4">
+          <button 
+            onClick={onClose}
+            className="flex-1 py-4 bg-white text-slate-600 rounded-2xl font-black text-sm border border-slate-200 hover:bg-slate-50 transition-all"
+          >
+            Batal
+          </button>
+          <button 
+            onClick={() => {
+              onSave(data);
+              onClose();
+            }}
+            className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
+          >
+            Simpan Perubahan
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoUrl: string }> = ({ users, onLogin, logoUrl }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -679,7 +796,8 @@ const Sidebar: React.FC<{
   user: User | null;
   onLogout: () => void;
   logoUrl: string;
-}> = ({ activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed, user, onLogout, logoUrl }) => {
+  rolePermissions: RolePermissions[];
+}> = ({ activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed, user, onLogout, logoUrl, rolePermissions }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'archive-list', label: 'Daftar Arsip', icon: ArchiveIcon },
@@ -697,6 +815,14 @@ const Sidebar: React.FC<{
     { id: 'access', label: 'Hak Akses', icon: Shield },
     { id: 'settings', label: 'Pengaturan', icon: RefreshCw },
   ];
+
+  const allowedMenuItems = menuItems.filter(item => {
+    if (!user) return false;
+    const perms = rolePermissions.find(p => p.role === user.role);
+    if (!perms) return false;
+    const module = perms.modules.find(m => m.id === item.id);
+    return module ? module.allowed : false;
+  });
 
   return (
     <>
@@ -746,7 +872,7 @@ const Sidebar: React.FC<{
 
         {/* Navigation Section */}
         <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1 custom-scrollbar">
-          {menuItems.map((item) => (
+          {allowedMenuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => {
@@ -792,10 +918,17 @@ const ArchiveForm: React.FC<{
   units: string[];
   categories: string[];
   classifications: string[];
+  currentUser: User | null;
   onSave: (archive: Archive) => void;
   onClose: () => void;
-}> = ({ archive, units, categories, classifications, onSave, onClose }) => {
-  const [data, setData] = useState<Archive>(archive || { ...EMPTY_ARCHIVE, id: crypto.randomUUID() });
+}> = ({ archive, units, categories, classifications, currentUser, onSave, onClose }) => {
+  const [data, setData] = useState<Archive>(() => {
+    const base = archive || { ...EMPTY_ARCHIVE, id: crypto.randomUUID() };
+    if (!archive && currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')) {
+      return { ...base, processingUnit: currentUser.processingUnit };
+    }
+    return base;
+  });
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [ocrStatus, setOcrStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1015,7 +1148,14 @@ const ArchiveForm: React.FC<{
                 Media & Tambahan
               </h3>
               <div className="grid grid-cols-1 gap-4">
-                <SelectField name="processingUnit" label="Unit Pengolah" value={data.processingUnit} onChange={handleChange} options={units} />
+                <SelectField 
+                  name="processingUnit" 
+                  label="Unit Pengolah" 
+                  value={data.processingUnit} 
+                  onChange={handleChange} 
+                  options={units} 
+                  disabled={!!currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')}
+                />
                 
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-400 uppercase">Input Berkas Digital (OCR Otomatis)</label>
@@ -1123,7 +1263,8 @@ const InputField: React.FC<{
   placeholder?: string;
   type?: string;
   required?: boolean;
-}> = ({ name, label, value, onChange, placeholder, type = 'text', required }) => (
+  disabled?: boolean;
+}> = ({ name, label, value, onChange, placeholder, type = 'text', required, disabled }) => (
   <div>
     <label className="block text-xs font-bold text-slate-400 uppercase mb-2">{label}</label>
     <input
@@ -1133,7 +1274,8 @@ const InputField: React.FC<{
       onChange={onChange}
       placeholder={placeholder}
       required={required}
-      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+      disabled={disabled}
+      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-60 disabled:bg-slate-100"
     />
   </div>
 );
@@ -1144,14 +1286,16 @@ const SelectField: React.FC<{
   value: string;
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   options: string[];
-}> = ({ name, label, value, onChange, options }) => (
+  disabled?: boolean;
+}> = ({ name, label, value, onChange, options, disabled }) => (
   <div>
     <label className="block text-xs font-bold text-slate-400 uppercase mb-2">{label}</label>
     <select
       name={name}
       value={value}
       onChange={onChange}
-      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+      disabled={disabled}
+      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-60 disabled:bg-slate-100"
     >
       <option value="">Pilih {label}</option>
       {options.map((opt) => (
@@ -1187,7 +1331,8 @@ const ArchiveDetail: React.FC<{
   archive: Archive;
   onClose: () => void;
   onEdit: (archive: Archive) => void;
-}> = ({ archive, onClose, onEdit }) => {
+  canEdit: boolean;
+}> = ({ archive, onClose, onEdit, canEdit }) => {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -1283,12 +1428,14 @@ const ArchiveDetail: React.FC<{
           )}
 
           <div className="flex gap-4">
-            <button 
-              onClick={() => onEdit(archive)}
-              className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
-            >
-              <Edit className="w-4 h-4" /> Edit Metadata
-            </button>
+            {canEdit && (
+              <button 
+                onClick={() => onEdit(archive)}
+                className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
+              >
+                <Edit className="w-4 h-4" /> Edit Metadata
+              </button>
+            )}
             <button 
               className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
               onClick={() => {
@@ -1568,7 +1715,9 @@ const ArchiveTable: React.FC<{
   onDetail: (doc: Archive) => void;
   onEdit: (doc: Archive) => void;
   onDelete: (id: string) => void;
-}> = ({ data, onDetail, onEdit, onDelete }) => (
+  canEdit: boolean;
+  canDelete: boolean;
+}> = ({ data, onDetail, onEdit, onDelete, canEdit, canDelete }) => (
   <div className="overflow-x-auto">
     <table className="w-full">
       <thead>
@@ -1613,20 +1762,24 @@ const ArchiveTable: React.FC<{
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => onEdit(doc)}
-                  className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
-                  title="Ubah Data"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onDelete(doc.id)}
-                  className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                  title="Hapus Permanen"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => onEdit(doc)}
+                    className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                    title="Ubah Data"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={() => onDelete(doc.id)}
+                    className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                    title="Hapus Permanen"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </td>
           </tr>
@@ -1716,7 +1869,8 @@ const UserFormModal: React.FC<{
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Role</label>
             <select value={data.role} onChange={e => setData({...data, role: e.target.value as Role})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm">
               <option value="SUPERADMIN">SUPERADMIN</option>
-              <option value="UNIT_ADMIN">UNIT_ADMIN</option>
+              <option value="ADMIN">ADMIN</option>
+              <option value="OPERATOR">OPERATOR</option>
               <option value="VIEWER">VIEWER</option>
             </select>
           </div>
@@ -1806,6 +1960,14 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<string[]>(['Aktif', 'Inaktif', 'Statis', 'Vital']);
   const [classifications, setClassifications] = useState<string[]>(['Terbuka', 'Terbatas', 'Rahasia']);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [rolePermissions, setRolePermissions] = useState<RolePermissions[]>(INITIAL_PERMISSIONS);
+  const [selectedRoleForPerms, setSelectedRoleForPerms] = useState<Role | null>(null);
+  const [showPermsModal, setShowPermsModal] = useState(false);
+  
+  useEffect(() => {
+    signInAnonymously(auth).catch(err => console.error('Auth error:', err));
+  }, []);
+
   const [loans, setLoans] = useState<LoanRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Semua');
@@ -1881,6 +2043,11 @@ const App: React.FC = () => {
       if (snapshot.exists()) setClassifications(snapshot.data().items);
     }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/classifications'));
 
+    const unsubPerms = onSnapshot(collection(db, 'permissions'), (snapshot) => {
+      const permsData = snapshot.docs.map(d => d.data() as RolePermissions);
+      if (permsData.length > 0) setRolePermissions(permsData);
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'permissions'));
+
     return () => {
       unsubDocs();
       unsubBoxes();
@@ -1890,8 +2057,16 @@ const App: React.FC = () => {
       unsubUnits();
       unsubCategories();
       unsubClassifications();
+      unsubPerms();
     };
   }, [isLoggedIn]);
+
+  // Synchronize filterUnit with unit admin's processingUnit
+  useEffect(() => {
+    if (currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')) {
+      setFilterUnit(currentUser.processingUnit);
+    }
+  }, [currentUser]);
 
   // Update cloud settings
   useEffect(() => {
@@ -1921,6 +2096,13 @@ const App: React.FC = () => {
   // Filter documents
   const filteredDocs = useMemo(() => {
     return documents.filter(doc => {
+      // Strict Unit-based filtering for ADMIN and OPERATOR
+      if (currentUser?.role === 'ADMIN' || currentUser?.role === 'OPERATOR') {
+        if (currentUser.processingUnit && doc.processingUnit !== currentUser.processingUnit) {
+          return false;
+        }
+      }
+
       const isAuthorized = currentUser?.role === 'SUPERADMIN' || 
         doc.processingUnit === currentUser?.processingUnit ||
         doc.securityClassification !== 'Rahasia';
@@ -2306,6 +2488,33 @@ const App: React.FC = () => {
     return <VaultLogin users={users} onLogin={handleLogin} logoUrl={webSettings.logoUrl} />;
   }
 
+  const canEdit = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN' || currentUser?.role === 'OPERATOR';
+  const canDelete = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN';
+  const canManageUsers = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN';
+  const canAccessVault = currentUser?.role === 'SUPERADMIN';
+  const isGuest = currentUser?.role === 'VIEWER';
+
+  const savePermissions = async (perms: RolePermissions) => {
+    try {
+      await setDoc(doc(db, 'permissions', perms.role), perms);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `permissions/${perms.role}`);
+    }
+  };
+
+  const isTabAllowed = (tab: string) => {
+    if (!currentUser) return false;
+    const perms = rolePermissions.find(p => p.role === currentUser.role);
+    if (!perms) return false;
+    const module = perms.modules.find(m => m.id === tab);
+    return module ? module.allowed : false;
+  };
+
+  if (!isTabAllowed(activeTab)) {
+    setActiveTab('dashboard');
+    return null;
+  }
+
   return (
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-sans">
       <Sidebar
@@ -2318,6 +2527,7 @@ const App: React.FC = () => {
         user={currentUser}
         onLogout={handleLogout}
         logoUrl={webSettings.logoUrl}
+        rolePermissions={rolePermissions}
       />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -2679,6 +2889,7 @@ const App: React.FC = () => {
             <ArchiveDetail 
               archive={selectedDocForDetail} 
               onClose={() => setSelectedDocForDetail(null)}
+              canEdit={canEdit}
               onEdit={(archive) => {
                 setSelectedDocForEdit(archive);
                 setShowForm(true);
@@ -2696,15 +2907,17 @@ const App: React.FC = () => {
                     <p className="text-slate-500 text-sm">Kelola dan pantau seluruh berkas fisik yang tersimpan.</p>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedDocForEdit(null);
-                        setShowForm(true);
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-black hover:bg-blue-700 shadow-sm shadow-blue-100 transition-all flex items-center gap-2"
-                    >
-                      <Plus className="w-3 h-3" /> Tambah Arsip
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => {
+                          setSelectedDocForEdit(null);
+                          setShowForm(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-black hover:bg-blue-700 shadow-sm shadow-blue-100 transition-all flex items-center gap-2"
+                      >
+                        <Plus className="w-3 h-3" /> Tambah Arsip
+                      </button>
+                    )}
                     <button
                       onClick={exportToExcel}
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-black hover:bg-emerald-700 shadow-sm shadow-emerald-100 transition-all flex items-center gap-2"
@@ -2739,7 +2952,8 @@ const App: React.FC = () => {
                   <select
                     value={filterUnit}
                     onChange={(e) => setFilterUnit(e.target.value)}
-                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none max-w-[150px]"
+                    disabled={!!currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none max-w-[150px] disabled:opacity-60"
                   >
                     <option value="Semua">Semua Unit</option>
                     {units.map(unit => (
@@ -2756,6 +2970,8 @@ const App: React.FC = () => {
                     setShowForm(true);
                   }}
                   onDelete={deleteArchive}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
                 />
               </div>
             </div>
@@ -2824,6 +3040,8 @@ const App: React.FC = () => {
                         setShowForm(true);
                       }}
                       onDelete={deleteArchive}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
                     />
                   ) : (
                     <div className="py-20 text-center">
@@ -2959,12 +3177,14 @@ const App: React.FC = () => {
                   <h3 className="text-3xl font-black text-slate-800 tracking-tight">Manajemen Peminjaman</h3>
                   <p className="text-slate-500 font-medium">Tracking sirkulasi dokumen fisik dan peta ketersediaan arsip.</p>
                 </div>
-                <button
-                  onClick={() => setShowLoanForm(true)}
-                  className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 transition-all active:scale-95"
-                >
-                  <Plus className="w-5 h-5" /> Buat Peminjaman Baru
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => setShowLoanForm(true)}
+                    className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 transition-all active:scale-95"
+                  >
+                    <Plus className="w-5 h-5" /> Buat Peminjaman Baru
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -3374,16 +3594,22 @@ const App: React.FC = () => {
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-slate-800">Daftar Unit Kerja DJKI</h3>
-                  <button onClick={() => { setSelectedUnitForEdit(null); setShowUnitForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200">
-                    + Unit Baru
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => { setSelectedUnitForEdit(null); setShowUnitForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200">
+                      + Unit Baru
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {units.map((unit) => (
                     <div key={unit} className="p-6 rounded-2xl border border-slate-100 bg-slate-50 hover:border-blue-200 transition-all group relative">
                       <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                        <button onClick={() => { setSelectedUnitForEdit(unit); setShowUnitForm(true); }} className="p-1.5 bg-white text-blue-600 rounded-lg shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"><Edit className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => deleteUnit(unit)} className="p-1.5 bg-white text-red-600 rounded-lg shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                        {canEdit && (
+                          <>
+                            <button onClick={() => { setSelectedUnitForEdit(unit); setShowUnitForm(true); }} className="p-1.5 bg-white text-blue-600 rounded-lg shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => deleteUnit(unit)} className="p-1.5 bg-white text-red-600 rounded-lg shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
@@ -3409,15 +3635,21 @@ const App: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-slate-800">Master Kategori Arsip</h3>
-                <button onClick={() => { setSelectedCategoryForEdit(null); setShowCategoryForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700">+ Kategori Baru</button>
+                {canEdit && (
+                  <button onClick={() => { setSelectedCategoryForEdit(null); setShowCategoryForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700">+ Kategori Baru</button>
+                )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {categories.map(cat => (
                   <div key={cat} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center group relative overflow-hidden">
                     <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/5 transition-all pointer-events-none" />
                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => { setSelectedCategoryForEdit(cat); setShowCategoryForm(true); }} className="p-1 bg-white text-blue-600 rounded border border-slate-200 hover:bg-blue-600 hover:text-white"><Edit className="w-3 h-3" /></button>
-                      <button onClick={() => deleteCategory(cat)} className="p-1 bg-white text-red-600 rounded border border-slate-200 hover:bg-red-600 hover:text-white"><Trash2 className="w-3 h-3" /></button>
+                      {canEdit && (
+                        <>
+                          <button onClick={() => { setSelectedCategoryForEdit(cat); setShowCategoryForm(true); }} className="p-1 bg-white text-blue-600 rounded border border-slate-200 hover:bg-blue-600 hover:text-white"><Edit className="w-3 h-3" /></button>
+                          <button onClick={() => deleteCategory(cat)} className="p-1 bg-white text-red-600 rounded border border-slate-200 hover:bg-red-600 hover:text-white"><Trash2 className="w-3 h-3" /></button>
+                        </>
+                      )}
                     </div>
                     <FolderOpen className="w-8 h-8 text-blue-600 mx-auto mb-3" />
                     <p className="font-black text-slate-800">{cat}</p>
@@ -3433,14 +3665,20 @@ const App: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-slate-800">Master Klasifikasi Keamanan</h3>
-                <button onClick={() => { setSelectedClassificationForEdit(null); setShowClassificationForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Klasifikasi Baru</button>
+                {canEdit && (
+                  <button onClick={() => { setSelectedClassificationForEdit(null); setShowClassificationForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">+ Klasifikasi Baru</button>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {classifications.map(cls => (
                   <div key={cls} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 group relative">
                     <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => { setSelectedClassificationForEdit(cls); setShowClassificationForm(true); }} className="p-1 px-2 bg-white text-blue-600 rounded border border-slate-200 hover:bg-blue-600 hover:text-white text-[10px] font-bold">Edit</button>
-                      <button onClick={() => deleteClassification(cls)} className="p-1 px-2 bg-white text-red-600 rounded border border-slate-200 hover:bg-red-600 hover:text-white text-[10px] font-bold">Hapus</button>
+                      {canEdit && (
+                        <>
+                          <button onClick={() => { setSelectedClassificationForEdit(cls); setShowClassificationForm(true); }} className="p-1 px-2 bg-white text-blue-600 rounded border border-slate-200 hover:bg-blue-600 hover:text-white text-[10px] font-bold">Edit</button>
+                          <button onClick={() => deleteClassification(cls)} className="p-1 px-2 bg-white text-red-600 rounded border border-slate-200 hover:bg-red-600 hover:text-white text-[10px] font-bold">Hapus</button>
+                        </>
+                      )}
                     </div>
                     <ShieldCheck className="w-8 h-8 text-blue-600 mb-3" />
                     <p className="font-black text-slate-800">{cls}</p>
@@ -3462,13 +3700,23 @@ const App: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
               <h3 className="font-bold text-slate-800 mb-6">Pengaturan Hak Akses Halaman</h3>
               <div className="space-y-4">
-                {['SUPERADMIN', 'UNIT_ADMIN', 'VIEWER'].map(role => (
+                {['SUPERADMIN', 'ADMIN', 'OPERATOR', 'VIEWER'].map(role => (
                   <div key={role} className="p-4 bg-slate-50 rounded-xl flex items-center justify-between border border-slate-100">
                     <div>
                       <p className="font-bold text-slate-800">{role}</p>
                       <p className="text-xs text-slate-500">Izin akses untuk peran personil {role}</p>
                     </div>
-                    <button className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold">Atur Izin</button>
+                    {canManageUsers && (
+                      <button 
+                        onClick={() => {
+                          setSelectedRoleForPerms(role as Role);
+                          setShowPermsModal(true);
+                        }}
+                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-all"
+                      >
+                        Atur Izin
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -3555,7 +3803,9 @@ const App: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-slate-800">Manajemen Pengguna</h3>
-                <button onClick={() => { setSelectedUserForEdit(null); setShowUserForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700">+ User Baru</button>
+                {canManageUsers && (
+                  <button onClick={() => { setSelectedUserForEdit(null); setShowUserForm(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold transition-all hover:bg-blue-700">+ User Baru</button>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -3582,7 +3832,9 @@ const App: React.FC = () => {
                         <td className="px-4 py-3">
                           <span className={`px-2 py-1 text-[9px] font-black rounded uppercase tracking-wider ${
                             u.role === 'SUPERADMIN' ? 'bg-purple-100 text-purple-700' :
-                            u.role === 'UNIT_ADMIN' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                            u.role === 'ADMIN' ? 'bg-blue-100 text-blue-700' : 
+                            u.role === 'OPERATOR' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-slate-100 text-slate-600'
                           }`}>
                             {u.role}
                           </span>
@@ -3590,9 +3842,13 @@ const App: React.FC = () => {
                         <td className="px-4 py-3 text-xs font-bold text-slate-600 tabular-nums">{u.processingUnit || 'Semua Unit'}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => { setSelectedUserForPass(u); setShowChangePassForm(true); }} className="p-1.5 bg-white text-slate-600 rounded-lg shadow-sm border border-slate-100 hover:bg-slate-900 hover:text-white transition-all" title="Ganti Password"><Key className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => { setSelectedUserForEdit(u); setShowUserForm(true); }} className="p-1.5 bg-white text-blue-600 rounded-lg shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"><Edit className="w-3.5 h-3.5" /></button>
-                            <button onClick={() => deleteUser(u.id)} className="p-1.5 bg-white text-red-600 rounded-lg shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                            {canManageUsers && (
+                              <>
+                                <button onClick={() => { setSelectedUserForPass(u); setShowChangePassForm(true); }} className="p-1.5 bg-white text-slate-600 rounded-lg shadow-sm border border-slate-100 hover:bg-slate-900 hover:text-white transition-all" title="Ganti Password"><Key className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => { setSelectedUserForEdit(u); setShowUserForm(true); }} className="p-1.5 bg-white text-blue-600 rounded-lg shadow-sm border border-slate-100 hover:bg-blue-600 hover:text-white transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => deleteUser(u.id)} className="p-1.5 bg-white text-red-600 rounded-lg shadow-sm border border-slate-100 hover:bg-red-600 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -3632,6 +3888,7 @@ const App: React.FC = () => {
           units={units}
           categories={categories}
           classifications={classifications}
+          currentUser={currentUser}
           onSave={saveArchive}
           onClose={() => {
             setShowForm(false);
@@ -3706,6 +3963,16 @@ const App: React.FC = () => {
           user={selectedUserForPass}
           onSave={changeUserPassword}
           onClose={() => { setShowChangePassForm(false); setSelectedUserForPass(null); }}
+        />
+      )}
+
+      {/* Permission Modal */}
+      {showPermsModal && selectedRoleForPerms && (
+        <PermissionModal
+          role={selectedRoleForPerms}
+          permissions={rolePermissions}
+          onClose={() => setShowPermsModal(false)}
+          onSave={savePermissions}
         />
       )}
     </div>
