@@ -12,7 +12,7 @@ import {
   Download, Printer, FileText, Search, Filter, Plus, Eye, Edit, Trash2,
   Lock, Key, LogOut, User as UserIcon, ShieldCheck, Database, LayoutDashboard,
   QrCode, ScanLine, Archive, X, ListTree, Shield, Building2, Camera, RefreshCw,
-  Upload, FileSpreadsheet, CheckCircle, AlertCircle, Clock, MapPin, FolderOpen, ArrowLeft
+  Upload, FileSpreadsheet, CheckCircle, AlertCircle, Clock, MapPin, FolderOpen, ArrowLeft, Settings
 } from 'lucide-react';
 
 // ======================================================
@@ -464,9 +464,32 @@ const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoU
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 overflow-hidden relative">
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1)_0%,transparent_70%)]"></div>
+    <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] flex items-center justify-center p-4 overflow-hidden relative">
+      {/* Background Decorative Elements */}
+      <div className="absolute inset-0 opacity-10 overflow-hidden pointer-events-none">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 100, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-24 -left-24"
+        >
+          <Settings className="w-96 h-96 text-blue-400" />
+        </motion.div>
+        <motion.div 
+          animate={{ rotate: -360 }}
+          transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
+          className="absolute -bottom-48 -right-48"
+        >
+          <Settings className="w-[32rem] h-[32rem] text-blue-400" />
+        </motion.div>
+        <div className="absolute top-1/4 right-1/4">
+          <Archive className="w-16 h-16 text-blue-500 opacity-20" />
+        </div>
+        <div className="absolute bottom-1/4 left-1/3">
+          <FileText className="w-12 h-12 text-blue-400 opacity-10" />
+        </div>
+      </div>
+
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.08)_0%,transparent_70%)]"></div>
       
       <AnimatePresence mode="wait">
         {!isOpening ? (
@@ -545,9 +568,16 @@ const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoU
 
               <button
                 type="submit"
-                className="w-full group relative py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-blue-500/30 overflow-hidden active:scale-95"
+                className="w-full group relative py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-blue-500/30 overflow-hidden active:scale-95 flex items-center justify-center gap-3"
               >
                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                  className="relative z-10"
+                >
+                  <Settings className="w-4 h-4" />
+                </motion.div>
                 <span className="relative z-10">Buka Brankas Digital</span>
               </button>
             </form>
@@ -727,31 +757,8 @@ const Sidebar: React.FC<{
 
         {/* Profile & Footer Section */}
         <div className="p-4 border-t border-slate-800/50 bg-[#0f172a]">
-          <div className={`p-2.5 rounded-2xl bg-slate-800/40 border border-slate-700/50 mb-3 transition-all duration-300 ${isCollapsed ? 'px-1' : ''}`}>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 border-2 border-blue-500/30 shadow-sm">
-                <img src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"} alt="User" />
-              </div>
-              {!isCollapsed && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-black truncate">{user?.name || 'Administrator'}</p>
-                  <p className="text-[9px] text-blue-400 font-bold uppercase tracking-wider">{user?.role || 'SUPERADMIN'}</p>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <button 
-            onClick={onLogout}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl font-black text-[13px] transition-all
-              ${isCollapsed ? 'justify-center' : ''}`}
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!isCollapsed && <span>Keluar</span>}
-          </button>
-
           {!isCollapsed && (
-            <div className="mt-4 pt-4 border-t border-slate-800/30 text-center">
+            <div className="pt-2 text-center">
               <p className="text-[7px] text-slate-500 font-black uppercase tracking-[0.3em]">Created By</p>
               <p className="text-[9px] text-blue-400/60 font-black mt-0.5 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-default">caqiestudioproduction</p>
             </div>
@@ -1762,29 +1769,53 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [webSettings, setWebSettings] = useState({
-    siteName: 'Portal Arsip DJKI',
-    department: 'Direktorat Jenderal Kekayaan Intelektual',
-    maintenanceMode: false,
-    logoUrl: 'https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95',
-    theme: 'system',
-    autoBackup: true,
-    retentionPolicy: 'Permanen',
-    ocrEnabled: true,
-    maxUploadSize: '10MB',
-    sessionTimeout: '60 Menit'
+  const [webSettings, setWebSettings] = useState(() => {
+    const saved = localStorage.getItem('djki_settings');
+    return saved ? JSON.parse(saved) : {
+      siteName: 'Portal Arsip DJKI',
+      department: 'Direktorat Jenderal Kekayaan Intelektual',
+      maintenanceMode: false,
+      logoUrl: 'https://lh3.googleusercontent.com/d/1he5AoYAHMd9dlg47zLlR_-vSX_tQ9u95',
+      theme: 'system',
+      autoBackup: true,
+      retentionPolicy: 'Permanen',
+      ocrEnabled: true,
+      maxUploadSize: '10MB',
+      sessionTimeout: '60 Menit'
+    };
   });
-  const [documents, setDocuments] = useState<Archive[]>(INITIAL_DOCS);
-  const [boxes, setBoxes] = useState<ArchiveBox[]>(INITIAL_BOXES);
+  const [documents, setDocuments] = useState<Archive[]>(() => {
+    const saved = localStorage.getItem('djki_docs');
+    return saved ? JSON.parse(saved) : INITIAL_DOCS;
+  });
+  const [boxes, setBoxes] = useState<ArchiveBox[]>(() => {
+    const saved = localStorage.getItem('djki_boxes');
+    return saved ? JSON.parse(saved) : INITIAL_BOXES;
+  });
   const [selectedBox, setSelectedBox] = useState<ArchiveBox | null>(null);
   const [selectedArchiveForLabel, setSelectedArchiveForLabel] = useState<Archive | null>(null);
   const [labelMode, setLabelMode] = useState<'box' | 'berkas'>('box');
   const [searchLabel, setSearchLabel] = useState('');
-  const [units, setUnits] = useState<string[]>(DJKI_UNITS);
-  const [categories, setCategories] = useState<string[]>(['Aktif', 'Inaktif', 'Statis', 'Vital']);
-  const [classifications, setClassifications] = useState<string[]>(['Terbuka', 'Terbatas', 'Rahasia']);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
-  const [loans, setLoans] = useState<LoanRecord[]>([]);
+  const [units, setUnits] = useState<string[]>(() => {
+    const saved = localStorage.getItem('djki_units');
+    return saved ? JSON.parse(saved) : DJKI_UNITS;
+  });
+  const [categories, setCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('djki_categories');
+    return saved ? JSON.parse(saved) : ['Aktif', 'Inaktif', 'Statis', 'Vital'];
+  });
+  const [classifications, setClassifications] = useState<string[]>(() => {
+    const saved = localStorage.getItem('djki_classifications');
+    return saved ? JSON.parse(saved) : ['Terbuka', 'Terbatas', 'Rahasia'];
+  });
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('djki_users');
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
+  });
+  const [loans, setLoans] = useState<LoanRecord[]>(() => {
+    const saved = localStorage.getItem('djki_loans');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Semua');
   const [filterLocation, setFilterLocation] = useState('Semua');
@@ -1818,6 +1849,39 @@ const App: React.FC = () => {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  // Persistence effects
+  useEffect(() => {
+    localStorage.setItem('djki_settings', JSON.stringify(webSettings));
+  }, [webSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('djki_docs', JSON.stringify(documents));
+  }, [documents]);
+
+  useEffect(() => {
+    localStorage.setItem('djki_boxes', JSON.stringify(boxes));
+  }, [boxes]);
+
+  useEffect(() => {
+    localStorage.setItem('djki_units', JSON.stringify(units));
+  }, [units]);
+
+  useEffect(() => {
+    localStorage.setItem('djki_categories', JSON.stringify(categories));
+  }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('djki_classifications', JSON.stringify(classifications));
+  }, [classifications]);
+
+  useEffect(() => {
+    localStorage.setItem('djki_users', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    localStorage.setItem('djki_loans', JSON.stringify(loans));
+  }, [loans]);
 
   // Update clock every second
   useEffect(() => {
@@ -2209,19 +2273,23 @@ const App: React.FC = () => {
                   {currentTime.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 pr-4 border-r border-slate-200">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-black text-slate-800 leading-tight">{currentUser?.name || 'Administrator'}</p>
+                    <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{currentUser?.role || 'SUPERADMIN'}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-blue-500/10 shadow-sm shrink-0 bg-slate-50">
+                    <img src={currentUser?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"} alt="User" className="w-full h-full object-cover" />
+                  </div>
+                </div>
                 <button
-                  onClick={exportToExcel}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-[11px] font-black hover:bg-red-600 hover:text-white transition-all border border-red-100 uppercase tracking-widest"
                 >
-                  <Download className="w-3 h-3" />
-                  Export
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Logout</span>
                 </button>
-                <label className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 cursor-pointer transition-all">
-                  <Upload className="w-3 h-3" />
-                  Import
-                  <input type="file" accept=".xlsx,.xls" onChange={importFromExcel} className="hidden" />
-                </label>
               </div>
             </div>
           </div>
