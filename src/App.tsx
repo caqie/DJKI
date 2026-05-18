@@ -26,7 +26,7 @@ import {
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
-import { signInAnonymously, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 
 // ======================================================
@@ -1964,10 +1964,6 @@ const App: React.FC = () => {
   const [selectedRoleForPerms, setSelectedRoleForPerms] = useState<Role | null>(null);
   const [showPermsModal, setShowPermsModal] = useState(false);
   
-  useEffect(() => {
-    signInAnonymously(auth).catch(err => console.error('Auth error:', err));
-  }, []);
-
   const [loans, setLoans] = useState<LoanRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('Semua');
