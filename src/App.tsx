@@ -26,7 +26,7 @@ import {
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { 
   Role, 
@@ -1964,7 +1964,10 @@ const App: React.FC = () => {
     retentionPolicy: 'Permanen',
     ocrEnabled: true,
     maxUploadSize: '10MB',
-    sessionTimeout: '60 Menit'
+    sessionTimeout: '60 Menit',
+    googleSheetsSpreadsheetId: '',
+    googleSheetsConnectedEmail: '',
+    googleSheetsAutoSync: false
   });
   const [documents, setDocuments] = useState<Archive[]>([]);
   const [boxes, setBoxes] = useState<ArchiveBox[]>([]);
@@ -2015,6 +2018,199 @@ const App: React.FC = () => {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  const [googleSheetsToken, setGoogleSheetsToken] = useState<string | null>(null);
+  const [googleSheetsUserEmail, setGoogleSheetsUserEmail] = useState<string | null>(null);
+  const [isSyncingSheets, setIsSyncingSheets] = useState(false);
+  const [sheetsSyncStatus, setSheetsSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [sheetsSyncError, setSheetsSyncError] = useState<string | null>(null);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(null);
+
+  const handleConnectGoogleSheets = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+      
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (!credential?.accessToken) {
+        throw new Error('Gagal mendapatkan token akses dari Google.');
+      }
+      
+      setGoogleSheetsToken(credential.accessToken);
+      setGoogleSheetsUserEmail(result.user.email);
+      
+      // Update config settings
+      const updatedSettings = {
+        ...webSettings,
+        googleSheetsConnectedEmail: result.user.email || ''
+      };
+      setWebSettings(updatedSettings);
+      
+      // If superadmin, save metadata to firestore
+      if (currentUser?.role === 'SUPERADMIN') {
+        const docRef = doc(db, 'settings', 'config');
+        await setDoc(docRef, updatedSettings, { merge: true });
+      }
+      
+      alert(`Berhasil terhubung ke akun Google: ${result.user.email}`);
+    } catch (err: any) {
+      console.error('Error connecting Google Sheets:', err);
+      alert(`Gagal menghubungkan Google Sheets: ${err.message || err}`);
+    }
+  };
+
+  const handleCreateNewSheet = async () => {
+    if (!googleSheetsToken) {
+      alert("Silakan hubungkan akun Google Anda terlebih dahulu.");
+      return;
+    }
+    
+    setIsSyncingSheets(true);
+    setSheetsSyncStatus('syncing');
+    setSheetsSyncError(null);
+    
+    try {
+      const title = `Arsip Digital DJKI - ${webSettings.department || 'Direktorat Jenderal Kekayaan Intelektual'}`;
+      const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${googleSheetsToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          properties: {
+            title
+          }
+        })
+      });
+      
+      if (!res.ok) {
+        throw new Error("Gagal membuat Spreadsheet baru di Google Drive Anda.");
+      }
+      
+      const data = await res.json();
+      const newSpreadsheetId = data.spreadsheetId;
+      
+      const updatedSettings = {
+        ...webSettings,
+        googleSheetsSpreadsheetId: newSpreadsheetId
+      };
+      setWebSettings(updatedSettings);
+      
+      if (currentUser?.role === 'SUPERADMIN') {
+        const docRef = doc(db, 'settings', 'config');
+        await setDoc(docRef, updatedSettings, { merge: true });
+      }
+      
+      setSheetsSyncStatus('idle');
+      alert(`Berhasil membuat Google Spreadsheet baru! ID: ${newSpreadsheetId}`);
+    } catch (err: any) {
+      console.error('Error creating Spreadsheet:', err);
+      setSheetsSyncStatus('error');
+      setSheetsSyncError(err.message || String(err));
+      alert(`Gagal membuat Spreadsheet: ${err.message || err}`);
+    } finally {
+      setIsSyncingSheets(false);
+    }
+  };
+
+  const handleSyncToSheets = async () => {
+    const spreadsheetId = webSettings.googleSheetsSpreadsheetId;
+    if (!googleSheetsToken) {
+      alert("Silakan hubungkan akun Google Anda terlebih dahulu.");
+      return;
+    }
+    if (!spreadsheetId) {
+      alert("Masukkan ID Spreadsheet atau buat Spreadsheet baru terlebih dahulu.");
+      return;
+    }
+    
+    setIsSyncingSheets(true);
+    setSheetsSyncStatus('syncing');
+    setSheetsSyncError(null);
+    
+    try {
+      // Get Spreadsheet sheets metadata safely
+      const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
+        headers: { Authorization: `Bearer ${googleSheetsToken}` }
+      });
+      
+      if (!metaRes.ok) {
+        throw new Error("ID Spreadsheet tidak ditemukan, pastikan Anda memiliki akses ke berkas tersebut.");
+      }
+      
+      const metaData = await metaRes.json();
+      const sheetTitle = metaData.sheets?.[0]?.properties?.title || "Sheet1";
+      
+      const headers = [
+        "Nomor Berkas", 
+        "Nomor Item Arsip", 
+        "Nomor Box", 
+        "Kode Klasifikasi", 
+        "Bentuk Dokumen",
+        "Nama Dokumen", 
+        "Pemohon / Pencipta", 
+        "Jenis Arsip", 
+        "Deskripsi", 
+        "Nomor Registrasi",
+        "Tanggal Dokumen", 
+        "Kategori Arsip", 
+        "Keamanan Akses", 
+        "Lokasi Penyimpanan", 
+        "Tahun"
+      ];
+      
+      const rows = documents.map(doc => [
+        doc.fileNumber || "-",
+        doc.archiveItemNumber || "-",
+        doc.boxNumber || "-",
+        doc.classificationCode || "-",
+        doc.documentForm || "-",
+        doc.name || "-",
+        doc.applicant || doc.creator || doc.copyrightHolder || "-",
+        doc.archiveType || "-",
+        doc.archiveDescription || "-",
+        doc.documentNumber || "-",
+        doc.documentDate || "-",
+        doc.archiveCategory || "-",
+        doc.securityClassification || "-",
+        `${doc.building || "-"}, Lt.${doc.floor || "-"}, Lemari ${doc.cabinet || "-"}, Rak ${doc.shelf || "-"}, Map ${doc.mapOrFolder || "-"}`,
+        doc.archiveYear || "-"
+      ]);
+      
+      const updateRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetTitle}'!A1?valueInputOption=USER_ENTERED`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${googleSheetsToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            range: `'${sheetTitle}'!A1`,
+            majorDimension: 'ROWS',
+            values: [headers, ...rows]
+          })
+        }
+      );
+      
+      if (!updateRes.ok) {
+        throw new Error("Gagal menulis data arsip ke spreadsheet.");
+      }
+      
+      setSheetsSyncStatus('success');
+      setLastSyncedTime(new Date().toLocaleTimeString('id-ID'));
+      alert("Sinkronisasi seluruh arsip digital ke Google Sheets sukses!");
+    } catch (err: any) {
+      console.error('Error syncing Google Sheets:', err);
+      setSheetsSyncStatus('error');
+      setSheetsSyncError(err.message || String(err));
+      alert(`Gagal sinkronisasi data: ${err.message || err}`);
+    } finally {
+      setIsSyncingSheets(false);
+    }
+  };
 
   const togglePasswordVisibility = (userId: string) => {
     const next = new Set(visiblePasswords);
@@ -2128,6 +2324,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoggedIn && currentUser) {
       const isAllowed = (tab: string) => {
+        if (currentUser.role === 'SUPERADMIN') return true;
         const perms = rolePermissions.find(p => p.role === currentUser.role);
         if (!perms) return false;
         const module = perms.modules.find(m => m.id === tab);
@@ -2890,6 +3087,131 @@ const App: React.FC = () => {
                           <Trash2 className="w-4 h-4" /> Reset Semua Data (Caution!)
                         </button>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Google Sheets Sync System */}
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                      <h3 className="font-black text-slate-800 flex items-center gap-2">
+                        <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                        Sinkronisasi Google Sheets
+                      </h3>
+                    </div>
+                    <div className="p-8 space-y-6">
+                      <p className="text-xs text-slate-500 font-bold leading-relaxed">
+                        Hubungkan portal arsip digital Anda dengan Google Sheets untuk sinkronisasi, pencadangan otomatis cloud, dan kemudahan ekspor laporan dalam satu spreadsheet spreadsheet real-time di Google Drive.
+                      </p>
+
+                      <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Status Koneksi Google</p>
+                          {googleSheetsToken ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <p className="text-sm font-black text-slate-700">Terhubung ({googleSheetsUserEmail || webSettings.googleSheetsConnectedEmail})</p>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                              <p className="text-sm font-black text-slate-600">Belum Terhubung</p>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <button
+                            onClick={handleConnectGoogleSheets}
+                            className={`px-5 py-3 rounded-xl font-black text-xs transition-all flex items-center gap-2.5 ${
+                              googleSheetsToken 
+                                ? 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50' 
+                                : 'bg-slate-900 text-white hover:bg-slate-800'
+                            }`}
+                          >
+                            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M21.35 11.1H12v3.8h5.38c-.23 1.16-.9 2.13-1.88 2.8l2.92 2.27c1.71-1.58 2.68-3.9 2.68-6.67 0-.75-.07-1.48-.2-2.2z" fill="#4285F4"/>
+                              <path d="M12 21c2.43 0 4.47-.8 5.96-2.2l-2.92-2.27c-.8.54-1.84.87-3.04.87-2.34 0-4.33-1.58-5.04-3.7l-3.03 2.34C5.4 19.34 8.44 21 12 21z" fill="#34A853"/>
+                              <path d="M6.96 13.7c-.18-.54-.28-1.12-.28-1.7s.1-1.16.28-1.7l-3.03-2.34C3.33 9.3 3 10.61 3 12c0 1.39.33 2.7 1.05 3.9l3.03-2.34z" fill="#FBBC05"/>
+                              <path d="M12 6.7c1.32 0 2.5.45 3.44 1.35l2.58-2.58C16.46 3.9 14.43 3 12 3 8.44 3 5.4 4.66 3.93 7.96l3.03 2.34c.71-2.12 2.7-3.7 5.04-3.7z" fill="#EA4335"/>
+                            </svg>
+                            {googleSheetsToken ? 'Ganti / Hubungkan Ulang' : 'Hubungkan Akun Google'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Spreadsheet ID</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              placeholder="Masukkan ID Spreadsheet..."
+                              value={webSettings.googleSheetsSpreadsheetId || ''}
+                              onChange={(e) => setWebSettings({...webSettings, googleSheetsSpreadsheetId: e.target.value})}
+                              className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-xs"
+                            />
+                            {googleSheetsToken && (
+                              <button
+                                onClick={handleCreateNewSheet}
+                                disabled={isSyncingSheets}
+                                className="px-4 py-3 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 rounded-2xl font-black text-xs transition-all whitespace-nowrap opacity-100 cursor-pointer"
+                              >
+                                Buat Baru
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[9px] text-slate-400 font-bold pl-1">ID berkas yang ada di URL spreadsheet Anda (misal: d/&lt;id-berkas&gt;/edit)</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Sinkronisasi Otomatis</label>
+                          <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+                            <div>
+                              <p className="text-xs font-black text-slate-700">Auto Sync</p>
+                              <p className="text-[9px] text-slate-400 font-bold uppercase">Cadangkan otomatis ke sheets</p>
+                            </div>
+                            <button 
+                              onClick={() => setWebSettings({...webSettings, googleSheetsAutoSync: !webSettings.googleSheetsAutoSync})}
+                              className={`w-10 h-5.5 rounded-full transition-all relative ${webSettings.googleSheetsAutoSync ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                            >
+                              <div className={`absolute top-0.75 w-4 h-4 bg-white rounded-full transition-all ${webSettings.googleSheetsAutoSync ? 'left-5.25' : 'left-0.75'}`} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {webSettings.googleSheetsSpreadsheetId && (
+                        <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/80 flex items-start gap-4">
+                          <div className="p-2 bg-white rounded-xl shadow-sm text-emerald-600">
+                            <CheckCircle className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs font-bold text-emerald-800 leading-tight">Spreadsheet Terhubung</p>
+                            <a 
+                              href={`https://docs.google.com/spreadsheets/d/${webSettings.googleSheetsSpreadsheetId}`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-[10px] text-blue-600 font-bold hover:underline inline-flex items-center mt-1.5 gap-1"
+                            >
+                              Buka Spreadsheet di Google Sheets ↗
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-4 pt-4 border-t border-slate-100">
+                        <button
+                          onClick={handleSyncToSheets}
+                          disabled={isSyncingSheets || !googleSheetsToken || !webSettings.googleSheetsSpreadsheetId}
+                          className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          {isSyncingSheets ? 'Memproses Sinkronisasi...' : 'Sinkronisasikan Semua Arsip Sekarang'}
+                        </button>
+                      </div>
+
+                      {lastSyncedTime && (
+                        <p className="text-[9px] text-slate-400 font-black text-right">Terakhir sinkronisasi: {lastSyncedTime}</p>
+                      )}
                     </div>
                   </div>
                 </div>
