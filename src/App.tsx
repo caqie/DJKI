@@ -9,10 +9,10 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { 
-  Download, Printer, FileText, Search, Filter, Plus, Eye, Edit, Trash2,
+  Download, Printer, FileText, Search, Filter, Plus, Eye, EyeOff, Edit, Trash2,
   Lock, Key, LogOut, User as UserIcon, ShieldCheck, Database, LayoutDashboard,
   QrCode, ScanLine, Archive as ArchiveIcon, X, ListTree, Shield, Building2, Camera, RefreshCw,
-  Upload, FileSpreadsheet, CheckCircle, AlertCircle, Clock, MapPin, FolderOpen, ArrowLeft, Settings
+  Upload, FileSpreadsheet, CheckCircle, AlertCircle, Clock, MapPin, FolderOpen, ArrowLeft, Settings, Save
 } from 'lucide-react';
 import { 
   collection, 
@@ -28,25 +28,23 @@ import {
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { 
+  Role, 
+  ArchiveCategory, 
+  SecurityClassification, 
+  DocumentForm,
+  User,
+  RolePermissions,
+  ModulePermission,
+  IntellectualPropertyDoc as Archive,
+  ArchiveBox,
+  LoanRecord
+} from './types';
 
 // ======================================================
 // TIPE DATA
 // ======================================================
-export type ArchiveCategory = 'Aktif' | 'Inaktif' | 'Statis' | 'Vital';
-export type SecurityClassification = 'Terbuka' | 'Terbatas' | 'Rahasia';
-export type DocumentForm = 'Asli' | 'Salinan' | 'Scan';
-export type Role = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'VIEWER';
-
-export interface ModulePermission {
-  id: string;
-  label: string;
-  allowed: boolean;
-}
-
-export interface RolePermissions {
-  role: Role;
-  modules: ModulePermission[];
-}
+// Use types from ./types.ts
 
 const DEFAULT_MODULES = [
   { id: 'dashboard', label: 'Dashboard', allowed: true },
@@ -73,83 +71,17 @@ const INITIAL_PERMISSIONS: RolePermissions[] = [
   { role: 'VIEWER', modules: DEFAULT_MODULES.map(m => ({ ...m, allowed: ['dashboard', 'archive-list', 'search'].includes(m.id) })) },
 ];
 
-export interface Archive {
-  id: string;
-  fileNumber: string;
-  archiveItemNumber: string;
-  boxNumber: string;
-  classificationCode: string;
-  documentForm: DocumentForm;
-  name: string;
-  applicant?: string;
-  inventor?: string;
-  creator?: string;
-  copyrightHolder?: string;
-  consultant?: string;
-  archiveType: string;
-  archiveDescription: string;
-  documentNumber: string;
-  documentDate: string;
-  archiveCategory: ArchiveCategory;
-  securityClassification: SecurityClassification;
-  building: string;
-  floor: string;
-  cabinet: string;
-  shelf: string;
-  mapOrFolder: string;
-  archiveYear: string;
-  processingUnit: string;
-  retentionPeriod: string;
-  additionalNotes: string;
-  uploadedBy?: string;
-  uploadDate?: string;
-  fileUrl?: string;
-  ocrText?: string;
-}
-
-export interface ArchiveBox {
-  id: string;
-  boxNumber: string;
-  location: string;
-  documentIds: string[];
-  processingUnit: string;
-  yearRange: string;
-  createdAt: string;
-}
-
-export interface User {
-  id: string;
-  username: string;
-  password?: string;
-  name: string;
-  role: Role;
-  processingUnit?: string;
-  avatar: string;
-}
-
-export interface LoanRecord {
-  id: string;
-  archiveId: string;
-  borrowerName: string;
-  borrowerNip: string;
-  borrowerUnit: string;
-  loanDate: string;
-  returnDate?: string;
-  status: 'Dipinjam' | 'Dikembalikan' | 'Overdue';
-  notes: string;
-}
-
 // ======================================================
 // DATA CONSTANTS
 // ======================================================
 const DJKI_UNITS = [
-  'Sekretariat Direktorat Jenderal',
-  'Direktorat Hak Cipta dan Desain Industri',
-  'Direktorat Paten, DTLST, dan Rahasia Dagang',
+  'Sekretariat',
   'Direktorat Merek dan Indikasi Geografis',
-  'Direktorat Kerja Sama dan Pemberdayaan KI',
-  'Direktorat Teknologi Informasi KI',
-  'Direktorat Penyidikan dan Penyelesaian Sengketa'
+  'Direktorat Paten, DTLST, dan RD',
+  'Direktorat Hak Cipta dan Desain Industri',
+  'Direktorat Kerjasama dan Pemberdayaan Kekayaan Intelektual',
+  'Direktorat Penyidikan dan Penyelesaian Sengketa',
+  'Direktorat Teknologi Informasi'
 ];
 
 const INITIAL_BOXES: ArchiveBox[] = [
@@ -158,7 +90,7 @@ const INITIAL_BOXES: ArchiveBox[] = [
     boxNumber: 'BOX-2024-001',
     location: 'Gedung A, Lantai 1, Lemari C-01, Rak S-01',
     documentIds: ['1', '2'],
-    processingUnit: 'Direktorat Merek dan Indikasi Geografis',
+    processingUnit: 'Merek',
     yearRange: '2023-2024',
     createdAt: '2024-01-01T00:00:00Z'
   },
@@ -167,7 +99,7 @@ const INITIAL_BOXES: ArchiveBox[] = [
     boxNumber: 'BOX-2024-002',
     location: 'Gedung B, Lantai 2, Lemari C-05, Rak S-02',
     documentIds: ['3'],
-    processingUnit: 'Sekretariat Direktorat Jenderal',
+    processingUnit: 'Sekretariat',
     yearRange: '2024',
     createdAt: '2024-02-01T00:00:00Z'
   }
@@ -398,7 +330,7 @@ const INITIAL_DOCS: Archive[] = [
     shelf: 'S-01',
     mapOrFolder: 'MAP-01',
     archiveYear: '2023',
-    processingUnit: 'Direktorat Merek dan Indikasi Geografis',
+    processingUnit: 'Merek',
     retentionPeriod: '10 Tahun',
     additionalNotes: '',
     uploadedBy: 'admin-merek',
@@ -427,7 +359,7 @@ const INITIAL_DOCS: Archive[] = [
     shelf: 'S-01',
     mapOrFolder: 'MAP-02',
     archiveYear: '2024',
-    processingUnit: 'Direktorat Paten, DTLST, dan Rahasia Dagang',
+    processingUnit: 'Paten',
     retentionPeriod: '20 Tahun',
     additionalNotes: '',
     uploadedBy: 'admin-paten',
@@ -453,7 +385,7 @@ const INITIAL_DOCS: Archive[] = [
     shelf: 'S-02',
     mapOrFolder: 'MAP-10',
     archiveYear: '2024',
-    processingUnit: 'Sekretariat Direktorat Jenderal',
+    processingUnit: 'Sekretariat',
     retentionPeriod: 'Permanen',
     additionalNotes: '',
     uploadedBy: 'superadmin',
@@ -471,6 +403,15 @@ const INITIAL_USERS: User[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
   },
   {
+    id: 'admin-sekre',
+    username: 'adminsekre',
+    password: 'admin123',
+    name: 'Admin Sekretariat',
+    role: 'ADMIN',
+    processingUnit: 'Sekretariat',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sekre'
+  },
+  {
     id: 'admin-merek',
     username: 'adminmerek',
     password: 'admin123',
@@ -478,14 +419,6 @@ const INITIAL_USERS: User[] = [
     role: 'ADMIN',
     processingUnit: 'Direktorat Merek dan Indikasi Geografis',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka'
-  },
-  {
-    id: 'viewer-tamu',
-    username: 'viewer',
-    password: 'viewer123',
-    name: 'Pengunjung Umum',
-    role: 'VIEWER',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'
   }
 ];
 
@@ -577,13 +510,17 @@ const PermissionModal: React.FC<{
 const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoUrl: string }> = ({ users, onLogin, logoUrl }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isOpening, setIsOpening] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(u => u.username === username);
-    if (user && (user.password === password || (!user.password && password === 'admin123'))) {
+    const cleanUsername = username.trim();
+    const cleanPassword = password.trim();
+    
+    const user = users.find(u => u.username === cleanUsername);
+    if (user && (user.password === cleanPassword || (!user.password && cleanPassword === 'admin123'))) {
       setIsOpening(true);
       
       // Wait for vault opening animation (2.5s)
@@ -677,13 +614,20 @@ const VaultLogin: React.FC<{ users: User[]; onLogin: (user: User) => void; logoU
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-bold text-slate-700"
+                    className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-bold text-slate-700"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-blue-500 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -816,28 +760,39 @@ const Sidebar: React.FC<{
     { id: 'settings', label: 'Pengaturan', icon: RefreshCw },
   ];
 
-  const allowedMenuItems = menuItems.filter(item => {
-    if (!user) return false;
-    const perms = rolePermissions.find(p => p.role === user.role);
-    if (!perms) return false;
-    const module = perms.modules.find(m => m.id === item.id);
-    return module ? module.allowed : false;
-  });
+  const allowedMenuItems = useMemo(() => {
+    if (user?.role === 'SUPERADMIN') return menuItems;
+    return menuItems.filter(item => {
+      if (!user) return false;
+      if (!rolePermissions || rolePermissions.length === 0) return true;
+      
+      const perms = rolePermissions.find(p => p.role === user.role);
+      if (!perms) return true;
+      
+      const module = perms.modules.find(m => m.id === item.id);
+      return module ? module.allowed : false;
+    });
+  }, [user, rolePermissions]);
 
   return (
     <>
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
       <aside
-        className={`fixed lg:static top-0 left-0 h-full bg-[#0f172a] text-white z-50 border-r border-slate-800 transition-all duration-300 ${
+        className={`fixed top-0 left-0 h-full bg-[#0f172a] text-white z-[70] border-r border-slate-800 transition-all duration-300 shadow-2xl flex flex-col ${
           isCollapsed ? 'w-20' : 'w-72'
         } ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } flex flex-col shadow-2xl`}
+        }`}
       >
         {/* Header/Logo Section */}
         <div className="p-6 shrink-0">
@@ -924,7 +879,8 @@ const ArchiveForm: React.FC<{
 }> = ({ archive, units, categories, classifications, currentUser, onSave, onClose }) => {
   const [data, setData] = useState<Archive>(() => {
     const base = archive || { ...EMPTY_ARCHIVE, id: crypto.randomUUID() };
-    if (!archive && currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')) {
+    const isAdmin = currentUser?.role === 'ADMIN';
+    if (!archive && currentUser?.processingUnit && (isAdmin || currentUser?.role === 'OPERATOR')) {
       return { ...base, processingUnit: currentUser.processingUnit };
     }
     return base;
@@ -1154,7 +1110,7 @@ const ArchiveForm: React.FC<{
                   value={data.processingUnit} 
                   onChange={handleChange} 
                   options={units} 
-                  disabled={!!currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')}
+                  disabled={!!currentUser?.processingUnit && (currentUser?.role === 'ADMIN' || currentUser?.role === 'OPERATOR')}
                 />
                 
                 <div className="space-y-2">
@@ -1332,7 +1288,8 @@ const ArchiveDetail: React.FC<{
   onClose: () => void;
   onEdit: (archive: Archive) => void;
   canEdit: boolean;
-}> = ({ archive, onClose, onEdit, canEdit }) => {
+  currentUser: User | null;
+}> = ({ archive, onClose, onEdit, canEdit, currentUser }) => {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -1436,15 +1393,17 @@ const ArchiveDetail: React.FC<{
                 <Edit className="w-4 h-4" /> Edit Metadata
               </button>
             )}
-            <button 
-              className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
-              onClick={() => {
-                if (archive.fileUrl) window.open(archive.fileUrl, '_blank');
-                else alert('File PDF belum diunggah.');
-              }}
-            >
-              <Eye className="w-4 h-4" /> Lihat Berkas PDF
-            </button>
+            {currentUser?.role !== 'VIEWER' && (
+              <button 
+                className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-all font-sans"
+                onClick={() => {
+                  if (archive.fileUrl) window.open(archive.fileUrl, '_blank');
+                  else alert('File PDF belum diunggah.');
+                }}
+              >
+                <Eye className="w-4 h-4" /> Lihat Berkas PDF
+              </button>
+            )}
           </div>
         </div>
 
@@ -1833,18 +1792,32 @@ const ManagementModal: React.FC<{
 const UserFormModal: React.FC<{
   user: User | null;
   units: string[];
+  roles: RolePermissions[];
+  currentUser: User | null;
   onSave: (user: User) => void;
   onClose: () => void;
-}> = ({ user, units, onSave, onClose }) => {
+}> = ({ user, units, roles, currentUser, onSave, onClose }) => {
   const [data, setData] = useState<User>(user || {
     id: crypto.randomUUID(),
     username: '',
     password: '',
     name: '',
-    role: 'VIEWER',
-    processingUnit: units[0],
+    role: 'OPERATOR',
+    processingUnit: currentUser?.role === 'SUPERADMIN' ? '' : (currentUser?.processingUnit || units[0]),
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`
   });
+  const [showPass, setShowPass] = useState(false);
+
+  const availableRoles = useMemo(() => {
+    if (currentUser?.role === 'SUPERADMIN') return roles;
+    // Unit Admins can manage ADMIN, OPERATOR, or VIEWER (restricted to their unit automatically)
+    return roles.filter(r => ['ADMIN', 'OPERATOR', 'VIEWER'].includes(r.role));
+  }, [roles, currentUser]);
+
+  const availableUnits = useMemo(() => {
+    if (currentUser?.role === 'SUPERADMIN') return units;
+    return units.filter(u => u === currentUser?.processingUnit);
+  }, [units, currentUser]);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
@@ -1862,23 +1835,43 @@ const UserFormModal: React.FC<{
           {!user && (
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Password</label>
-              <input type="password" value={data.password} onChange={e => setData({...data, password: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+              <div className="relative">
+                <input 
+                  type={showPass ? "text" : "password"} 
+                  value={data.password} 
+                  onChange={e => setData({...data, password: e.target.value})} 
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm pr-10" 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
+                >
+                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           )}
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Role</label>
             <select value={data.role} onChange={e => setData({...data, role: e.target.value as Role})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm">
-              <option value="SUPERADMIN">SUPERADMIN</option>
-              <option value="ADMIN">ADMIN</option>
-              <option value="OPERATOR">OPERATOR</option>
-              <option value="VIEWER">VIEWER</option>
+              {availableRoles.map(r => (
+                <option key={r.role} value={r.role}>
+                  {r.role.replace(/_/g, ' ')}
+                </option>
+              ))}
             </select>
           </div>
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Unit Kerja</label>
-            <select value={data.processingUnit} onChange={e => setData({...data, processingUnit: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm">
+            <select 
+              value={data.processingUnit} 
+              onChange={e => setData({...data, processingUnit: e.target.value})} 
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm disabled:opacity-60"
+              disabled={currentUser?.role !== 'SUPERADMIN'}
+            >
               <option value="">Semua Unit</option>
-              {units.map(u => <option key={u} value={u}>{u}</option>)}
+              {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
         </div>
@@ -1898,6 +1891,7 @@ const ChangePasswordModal: React.FC<{
 }> = ({ user, onSave, onClose }) => {
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const [showPass, setShowPass] = useState(false);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
@@ -1907,11 +1901,33 @@ const ChangePasswordModal: React.FC<{
         <div className="space-y-4">
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Password Baru</label>
-            <input type="password" autoFocus value={newPass} onChange={e => setNewPass(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+            <div className="relative">
+              <input 
+                type={showPass ? "text" : "password"} 
+                autoFocus 
+                value={newPass} 
+                onChange={e => setNewPass(e.target.value)} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm pr-10" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Konfirmasi Password</label>
-            <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm" />
+            <div className="relative">
+              <input 
+                type={showPass ? "text" : "password"} 
+                value={confirmPass} 
+                onChange={e => setConfirmPass(e.target.value)} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-sm pr-10" 
+              />
+            </div>
           </div>
         </div>
         <div className="flex gap-3 mt-8">
@@ -1992,12 +2008,20 @@ const App: React.FC = () => {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<LoanRecord | null>(null);
   const [selectedDocForDetail, setSelectedDocForDetail] = useState<Archive | null>(null);
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
   const [reportPeriod, setReportPeriod] = useState('Semua');
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  const togglePasswordVisibility = (userId: string) => {
+    const next = new Set(visiblePasswords);
+    if (next.has(userId)) next.delete(userId);
+    else next.add(userId);
+    setVisiblePasswords(next);
+  };
 
   // Firestore synchronization
   useEffect(() => {
@@ -2015,7 +2039,18 @@ const App: React.FC = () => {
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const usersData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
-      setUsers(usersData.length > 0 ? usersData : INITIAL_USERS);
+      
+      // Merge initial users with firestore data to avoid losing default accounts
+      const merged = [...INITIAL_USERS];
+      usersData.forEach(ud => {
+        const idx = merged.findIndex(mu => mu.id === ud.id || (ud.username && mu.username === ud.username));
+        if (idx > -1) {
+          merged[idx] = { ...merged[idx], ...ud };
+        } else {
+          merged.push(ud);
+        }
+      });
+      setUsers(merged);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'users'));
 
     const unsubLoans = onSnapshot(collection(db, 'loans'), (snapshot) => {
@@ -2059,24 +2094,24 @@ const App: React.FC = () => {
 
   // Synchronize filterUnit with unit admin's processingUnit
   useEffect(() => {
-    if (currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')) {
-      setFilterUnit(currentUser.processingUnit);
+    const isAdmin = currentUser?.role === 'ADMIN';
+    if (currentUser?.processingUnit && (isAdmin || currentUser?.role === 'OPERATOR')) {
+      if (filterUnit !== currentUser.processingUnit) {
+        setFilterUnit(currentUser.processingUnit);
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, filterUnit]);
 
-  // Update cloud settings
-  useEffect(() => {
-    if (isLoggedIn && currentUser?.role === 'SUPERADMIN') {
-      const updateSettings = async () => {
-        try {
-          await setDoc(doc(db, 'settings', 'config'), webSettings);
-        } catch (err) {
-          console.error("Failed to sync settings:", err);
-        }
-      };
-      updateSettings();
+  const handleSaveSettings = async () => {
+    if (!isLoggedIn || currentUser?.role !== 'SUPERADMIN') return;
+    try {
+      await setDoc(doc(db, 'settings', 'config'), webSettings);
+      alert("Pengaturan sistem berhasil diperbarui!");
+    } catch (err) {
+      console.error("Failed to sync settings:", err);
+      alert("Gagal memperbarui pengaturan sistem.");
     }
-  }, [webSettings, isLoggedIn, currentUser]);
+  };
 
   // Update clock every second
   useEffect(() => {
@@ -2089,11 +2124,28 @@ const App: React.FC = () => {
     setSelectedDocForDetail(null);
   }, [activeTab]);
 
+  // Tab permission enforcement
+  useEffect(() => {
+    if (isLoggedIn && currentUser) {
+      const isAllowed = (tab: string) => {
+        const perms = rolePermissions.find(p => p.role === currentUser.role);
+        if (!perms) return false;
+        const module = perms.modules.find(m => m.id === tab);
+        return module ? module.allowed : false;
+      };
+
+      if (!isAllowed(activeTab)) {
+        setActiveTab('dashboard');
+      }
+    }
+  }, [activeTab, currentUser, isLoggedIn, rolePermissions]);
+
   // Filter documents
   const filteredDocs = useMemo(() => {
     return documents.filter(doc => {
       // Strict Unit-based filtering for ADMIN and OPERATOR
-      if (currentUser?.role === 'ADMIN' || currentUser?.role === 'OPERATOR') {
+      const isAdmin = currentUser?.role === 'ADMIN';
+      if (isAdmin || currentUser?.role === 'OPERATOR') {
         if (currentUser.processingUnit && doc.processingUnit !== currentUser.processingUnit) {
           return false;
         }
@@ -2145,11 +2197,14 @@ const App: React.FC = () => {
 
   // Stats per unit
   const unitStats = useMemo(() => {
-    return units.map(unit => ({
+    const stats = units.map(unit => ({
       name: unit,
       count: documents.filter(d => d.processingUnit === unit).length
     }));
-  }, [documents, units]); // Added units to dependency
+    return currentUser?.role === 'SUPERADMIN' 
+      ? stats 
+      : stats.filter(s => s.name === currentUser?.processingUnit);
+  }, [documents, units, currentUser]);
 
   // Handle login
   const handleLogin = (user: User) => {
@@ -2180,7 +2235,11 @@ const App: React.FC = () => {
 
   // Delete archive
   const deleteArchive = async (id: string) => {
-    if (window.confirm('Hapus arsip ini?')) {
+    if (currentUser?.role !== 'SUPERADMIN') {
+      alert('Hanya Super Admin yang dapat menghapus arsip.');
+      return;
+    }
+    if (window.confirm('Apakah Anda yakin ingin menghapus arsip ini?')) {
       try {
         await deleteDoc(doc(db, 'documents', id));
       } catch (err) {
@@ -2432,7 +2491,13 @@ const App: React.FC = () => {
   // User CRUD
   const saveUser = async (user: User) => {
     try {
-      await setDoc(doc(db, 'users', user.id), user, { merge: true });
+      // Clean up whitespace
+      const cleanedUser = {
+        ...user,
+        username: user.username.trim(),
+        name: user.name.trim()
+      };
+      await setDoc(doc(db, 'users', cleanedUser.id), cleanedUser, { merge: true });
       setShowUserForm(false);
       setSelectedUserForEdit(null);
     } catch (err) {
@@ -2455,8 +2520,10 @@ const App: React.FC = () => {
   };
 
   const changeUserPassword = async (id: string, newPass: string) => {
+    const userToUpdate = users.find(u => u.id === id);
+    if (!userToUpdate) return;
     try {
-      await updateDoc(doc(db, 'users', id), { password: newPass });
+      await setDoc(doc(db, 'users', id), { ...userToUpdate, password: newPass }, { merge: true });
       setShowChangePassForm(false);
       setSelectedUserForPass(null);
       alert('Password berhasil diperbarui');
@@ -2484,9 +2551,10 @@ const App: React.FC = () => {
     return <VaultLogin users={users} onLogin={handleLogin} logoUrl={webSettings.logoUrl} />;
   }
 
-  const canEdit = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN' || currentUser?.role === 'OPERATOR';
-  const canDelete = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN';
-  const canManageUsers = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'ADMIN';
+  const isAdmin = currentUser?.role === 'ADMIN';
+  const canEdit = currentUser?.role === 'SUPERADMIN' || isAdmin || currentUser?.role === 'OPERATOR';
+  const canDelete = currentUser?.role === 'SUPERADMIN';
+  const canManageUsers = currentUser?.role === 'SUPERADMIN' || isAdmin;
   const canAccessVault = currentUser?.role === 'SUPERADMIN';
   const isGuest = currentUser?.role === 'VIEWER';
 
@@ -2500,16 +2568,12 @@ const App: React.FC = () => {
 
   const isTabAllowed = (tab: string) => {
     if (!currentUser) return false;
+    if (currentUser.role === 'SUPERADMIN') return true;
     const perms = rolePermissions.find(p => p.role === currentUser.role);
     if (!perms) return false;
     const module = perms.modules.find(m => m.id === tab);
     return module ? module.allowed : false;
   };
-
-  if (!isTabAllowed(activeTab)) {
-    setActiveTab('dashboard');
-    return null;
-  }
 
   return (
     <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-sans">
@@ -2526,7 +2590,7 @@ const App: React.FC = () => {
         rolePermissions={rolePermissions}
       />
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'}`}>
         {/* Header - Fixed */}
         <header className="shrink-0 bg-white p-4 lg:px-8 border-b border-slate-200 z-10">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -2813,6 +2877,12 @@ const App: React.FC = () => {
                       </div>
 
                       <div className="flex gap-4 pt-4 border-t border-slate-100">
+                        <button 
+                          onClick={handleSaveSettings}
+                          className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-xs hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Save className="w-4 h-4" /> Simpan Perubahan Pengaturan
+                        </button>
                         <button className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
                           <RefreshCw className="w-4 h-4" /> Re-index OCR Database
                         </button>
@@ -2886,6 +2956,7 @@ const App: React.FC = () => {
               archive={selectedDocForDetail} 
               onClose={() => setSelectedDocForDetail(null)}
               canEdit={canEdit}
+              currentUser={currentUser}
               onEdit={(archive) => {
                 setSelectedDocForEdit(archive);
                 setShowForm(true);
@@ -2948,7 +3019,7 @@ const App: React.FC = () => {
                   <select
                     value={filterUnit}
                     onChange={(e) => setFilterUnit(e.target.value)}
-                    disabled={!!currentUser?.processingUnit && (currentUser.role === 'ADMIN' || currentUser.role === 'OPERATOR')}
+                    disabled={!!currentUser?.processingUnit && (currentUser?.role === 'ADMIN' || currentUser?.role === 'OPERATOR')}
                     className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none max-w-[150px] disabled:opacity-60"
                   >
                     <option value="Semua">Semua Unit</option>
@@ -3810,11 +3881,12 @@ const App: React.FC = () => {
                       <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Role</th>
                       <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Unit</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Password</th>
                       <th className="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase text-center">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(u => (
+                    {users.filter(u => currentUser?.role === 'SUPERADMIN' || u.processingUnit === currentUser?.processingUnit).map(u => (
                       <tr key={u.id} className="border-b hover:bg-slate-50 group">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -3832,10 +3904,24 @@ const App: React.FC = () => {
                             u.role === 'OPERATOR' ? 'bg-emerald-100 text-emerald-700' :
                             'bg-slate-100 text-slate-600'
                           }`}>
-                            {u.role}
+                            {u.role.replace(/_/g, ' ')}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs font-bold text-slate-600 tabular-nums">{u.processingUnit || 'Semua Unit'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded">
+                              {visiblePasswords.has(u.id) ? (u.password || '••••••••') : '••••••••'}
+                            </span>
+                            <button 
+                              onClick={() => togglePasswordVisibility(u.id)}
+                              className="text-slate-400 hover:text-blue-500 transition-colors"
+                              title={visiblePasswords.has(u.id) ? "Sembunyikan Password" : "Lihat Password"}
+                            >
+                              {visiblePasswords.has(u.id) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                             {canManageUsers && (
@@ -3949,6 +4035,8 @@ const App: React.FC = () => {
         <UserFormModal
           user={selectedUserForEdit}
           units={units}
+          roles={rolePermissions}
+          currentUser={currentUser}
           onClose={() => { setShowUserForm(false); setSelectedUserForEdit(null); }}
           onSave={saveUser}
         />

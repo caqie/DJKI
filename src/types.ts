@@ -4,56 +4,61 @@ export type DocumentForm = 'Asli' | 'Salinan' | 'Scan';
 export type DevelopmentLevel = 'Asli' | 'Copy' | 'Draft';
 export type ArchiveCategory = 'Vital' | 'Aktif' | 'Inaktif' | 'Statis';
 
-export type Role = 'SUPERADMIN' | 'UNIT_ADMIN';
+export type Role = 'SUPERADMIN' | 'ADMIN' | 'OPERATOR' | 'VIEWER';
+
+export interface ModulePermission {
+  id: string;
+  label: string;
+  allowed: boolean;
+}
+
+export interface RolePermissions {
+  role: Role;
+  modules: ModulePermission[];
+}
 
 export interface User {
   id: string;
   username: string;
+  password?: string;
   name: string;
   role: Role;
-  processingUnit?: string; // Only for UNIT_ADMIN
-  avatar?: string;
+  processingUnit?: string;
+  avatar: string;
 }
 
 export interface IntellectualPropertyDoc {
   id: string;
-  // 1. Identitas Arsip
-  fileNumber: string; // Nomor Berkas
-  archiveItemNumber: string; // Nomor Item Arsip
-  boxNumber: string; // No Box
-  archiveCategory: ArchiveCategory; // Kategori Arsip
-  classificationCode: string; // Kode Klasifikasi Arsip
-  documentForm: DocumentForm; // Bentuk Naskah
-
-  // 2. Informasi Arsip
-  name: string; // Nama
-  nipOrApplicant: string; // NIP / Pemohon
-  archiveType: string; // Jenis Arsip
-  archiveDescription: string; // Keterangan Arsip
-  documentNumber: string; // Nomor Dokumen
-  documentDate: string; // Tanggal Dokumen
-
-  // 3. Status Arsip
-  developmentLevel: DevelopmentLevel; // Tingkat Perkembangan
-  securityClassification: SecurityClassification; // Ket. Klasifikasi Keamanan
-
-  // 4. Lokasi Penyimpanan
-  building: string; // Gedung
-  floor: string; // Lantai
-  cabinet: string; // Lemari
-  shelf?: string; // Rak / Shelf
-  mapOrFolder: string; // Map / Folder
-
-  // 5. Field Tambahan
-  archiveYear: string; // Tahun Arsip
-  processingUnit: string; // Unit Pengolah
-  retentionPeriod: string; // Retensi Arsip
-  additionalNotes?: string; // Keterangan Tambahan
-
+  fileNumber: string;
+  archiveItemNumber: string;
+  boxNumber: string;
+  classificationCode: string;
+  documentForm: DocumentForm;
+  name: string;
+  applicant?: string;
+  inventor?: string;
+  creator?: string;
+  copyrightHolder?: string;
+  consultant?: string;
+  archiveType: string;
+  archiveDescription: string;
+  documentNumber: string;
+  documentDate: string;
+  archiveCategory: ArchiveCategory;
+  securityClassification: SecurityClassification;
+  building: string;
+  floor: string;
+  cabinet: string;
+  shelf: string;
+  mapOrFolder: string;
+  archiveYear: string;
+  processingUnit: string;
+  retentionPeriod: string;
+  additionalNotes: string;
+  uploadedBy?: string;
+  uploadDate?: string;
   fileUrl?: string;
-  archiveSequence?: string; // No (Legacy support)
-  uploadedBy: string; // User ID
-  uploadDate?: string; // ISO string
+  ocrText?: string;
 }
 
 export interface ArchiveBox {
@@ -61,9 +66,21 @@ export interface ArchiveBox {
   boxNumber: string;
   location: string;
   documentIds: string[];
-  processingUnit?: string;
-  yearRange?: string;
+  processingUnit: string;
+  yearRange: string;
   createdAt: string;
+}
+
+export interface LoanRecord {
+  id: string;
+  archiveId: string;
+  borrowerName: string;
+  borrowerNip: string;
+  borrowerUnit: string;
+  loanDate: string;
+  returnDate?: string;
+  status: 'Dipinjam' | 'Dikembalikan' | 'Overdue';
+  notes: string;
 }
 
 export interface Stats {
